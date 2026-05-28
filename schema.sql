@@ -15,7 +15,7 @@ CREATE TABLE devices (
     device_name TEXT,
     device_type TEXT CHECK(device_type IN ('IoT', 'Mobile', 'Workstation', 'Server', 'Gateway', 'Console', 'Network', 'Media', 'Other')),
     internal_ip TEXT,
-    owner_name TEXT,
+    owner_name TEXT
 );
 
 --Create incidents table (Child of devices, Parent to incident_events and recommendations)
@@ -24,7 +24,7 @@ CREATE TABLE incidents (
     device_id INTEGER NOT NULL,
     title TEXT NOT NULL,
     severity TEXT CHECK(severity IN ('Low', 'Medium', 'High', 'Critical')),
-    status TEXT CHECK(status IN ('Active', 'Investigating', 'Mitigated', 'False Positive')),\
+    status TEXT CHECK(status IN ('Active', 'Investigating', 'Mitigated', 'False Positive')),
     created_at TEXT NOT NULL,
     FOREIGN KEY (device_id) REFERENCES devices(device_id)
 );
@@ -44,7 +44,7 @@ Create TABLE incident_events (
 --Create indicators table (Parent to junction table incident_indicators)
 CREATE TABLE indicators (
     indicator_id INTEGER PRIMARY KEY,
-    indicatory_value TEXT NOT NULL,
+    indicator_value TEXT NOT NULL,
     indicator_type TEXT,
     threat_actor_group TEXT,
     confidence_score INTEGER
