@@ -1,27 +1,36 @@
-# Final Project Starter Environment
+# Aetherius Sentinel: AI Home Cybersecurity Incident Analyst
 
 ## Project Description
+Aetherius Sentinel is a database-backed AI application built with Python, SQLite, and Streamlit. It serves as a comprehensive cybersecurity incident analyst for the modern smart home, translating complex network telemetry into plain-language summaries and actionable safety recommendations.
 
-This project is the starter environment for a database-backed AI application built with Python, SQL, and Streamlit.
+## Intended Users
+* **Primary User:** Homeowners (Non-Technical)
+* **Secondary User:** Home Network Admins (Advanced)
 
-## Current Features
+## Setup and Installation
 
-- Ptyhon virtual Environment
-- Streamlit starter application
-- SQLite starter db
-- SQL schema file
-- Seed script
--Db access module
+### 1. Install Dependencies
+Activate your virtual environment, then install the required packages:
+pip install -r requirements.txt
 
-## How to Run
-1. Activate the virtual evnironment.
-2. Install dependencies:
-    '''bash
-    pip install -r requirements.txt
-3. Create the starter db:
-    python seed.py
-4. Run the Streamlit app:
-    streamlit run app.py
+### 2. Build and Seed the Database
+To create the SQLite project database, run the schema, and load the seed network telemetry data, run:
+python seed.py
+The database will be generated at: data/project.db
 
-Notes:
-This starter application does not include the final project db schema or AI Features. BUT buckle in cause you're about to witness greatness in the making Dr.B.
+### 3. Test the Database Access Layer
+To verify Python can successfully connect and execute queries against the seeded database:
+python db.py
+
+### 4. AI Configuration
+To enable the AI analysis features, create a .env file in the project root directory and add your API key:
+AI_API_KEY=your_key_here
+Warning: Do not commit or submit your real .env file to version control.
+
+### 5. Run the Streamlit Application
+Launch the interactive dashboard:
+streamlit run app.py
+
+### Known Limitations
+The AI summaries and mitigation suggestions must be verified against the displayed raw database evidence. The application does not automatically resolve network incidents, block traffic, or replace human judgment.
+Buckle in, because you're about to witness greatness in the making, Dr. B.
