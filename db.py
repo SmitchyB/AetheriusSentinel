@@ -37,7 +37,7 @@ def get_db_connection():
 def get_all_devices():
     """Retrieve all monitored devices on the network as a DataFrame."""
     query = """
-        SELECT device_id, mac_address, device_name, device_type 
+        SELECT device_id, mac_address, device_name, device_type, internal_ip
         FROM devices;
     """
     with get_db_connection() as conn:

@@ -58,7 +58,7 @@
     line-height: var(--sentinel-body-line);
 }
 
-section.main .block-container h1 {
+section.main .block-container h1:not(.sentinel-app-title) {
     margin-top: 0 !important;
     padding-top: 0.5rem;
     line-height: 1.25;
@@ -652,6 +652,7 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.expert-draft-form) [data-te
     line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }

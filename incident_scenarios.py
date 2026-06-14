@@ -30,16 +30,16 @@ from action_catalog import (
     ACTIONS,
     CONTAINMENT_KEYS,
     ERADICATION_KEYS,
-    INVESTIGATION_KEYS,
     POST_INCIDENT_KEYS,
-    RESOLUTION_KEYS,
     build_recommended_playbook,
     format_action_result,
     format_plain_action_result,
     get_action,
     get_draft_payload,
+    get_scenario_step_prompt,
     normalize_action_key,
     playbook_recommendation_text,
+    recommended_steps_in_category,
     scenario_key_for_title,
 )
 
@@ -220,6 +220,8 @@ def init_incident_state():
         st.session_state.playbook_phase = "awaiting_ack"
     if "recommended_action_keys" not in st.session_state:
         st.session_state.recommended_action_keys = []
+    if "recommended_action_incident_id" not in st.session_state:
+        st.session_state.recommended_action_incident_id = None
 
 
 def is_expert_mode() -> bool:
@@ -262,26 +264,78 @@ def clear_active_incident():
     st.session_state.active_incident = None
     st.session_state.playbook_phase = "awaiting_ack"
     st.session_state.recommended_action_keys = []
+    st.session_state.recommended_action_incident_id = None
+
+
+def _load_recommended_action_keys_from_db(incident_id: int) -> list[str]:
+    """Read the active playbook action list from SQLite."""
+    rec = db.get_active_playbook_recommendation(incident_id)
+    if rec and rec.get("playbook_actions_json"):
+        try:
+            return json.loads(rec["playbook_actions_json"])
+        except json.JSONDecodeError:
+            pass
+    return []
 
 
 def get_recommended_action_keys(incident_id: int | None = None) -> list[str]:
-    """Resolve recommended playbook steps from session cache or DB."""
-    if st.session_state.get("recommended_action_keys"):
-        return list(st.session_state.recommended_action_keys)
+    """Resolve recommended playbook steps from incident-scoped cache or DB."""
+    incident_id = incident_id or st.session_state.get("active_incident_id")
+    cached_id = st.session_state.get("recommended_action_incident_id")
+    cached_keys = st.session_state.get("recommended_action_keys")
+    if incident_id and cached_id == incident_id and cached_keys is not None:
+        return list(cached_keys)
     if incident_id:
-        rec = db.get_active_playbook_recommendation(incident_id)
-        if rec and rec.get("playbook_actions_json"):
-            try:
-                return json.loads(rec["playbook_actions_json"])
-            except json.JSONDecodeError:
-                pass
-    return []
+        return _load_recommended_action_keys_from_db(incident_id)
+    return list(cached_keys) if cached_keys else []
 
 
 def sync_recommended_actions_from_db(incident_id: int):
     """Refresh session cache of recommended action keys from the database."""
-    keys = get_recommended_action_keys(incident_id)
+    keys = _load_recommended_action_keys_from_db(incident_id)
     st.session_state.recommended_action_keys = keys
+    st.session_state.recommended_action_incident_id = incident_id
+
+
+def _incident_completed_action_keys(incident_id: int | None) -> set[str]:
+    return db.get_incident_action_keys_completed(incident_id) if incident_id else set()
+
+
+def is_playbook_complete(incident: dict) -> bool:
+    """Return True when every recommended playbook step has been completed."""
+    incident_id = incident.get("incident_id")
+    recommended = get_recommended_action_keys(incident_id)
+    if not recommended:
+        return False
+    completed = _incident_completed_action_keys(incident_id)
+    return all(k in completed for k in recommended)
+
+
+def get_next_recommended_step(
+    incident: dict,
+    *,
+    require_executable: bool = False,
+) -> str | None:
+    """Return the next incomplete playbook step, optionally gated by can_execute_action."""
+    incident_id = incident.get("incident_id")
+    recommended = get_recommended_action_keys(incident_id)
+    completed = _incident_completed_action_keys(incident_id)
+    for key in recommended:
+        if key in completed:
+            continue
+        if require_executable and not can_execute_action(key, incident):
+            continue
+        return key
+    return None
+
+
+def get_next_executable_recommended_step(incident: dict) -> str | None:
+    """Return the next recommended step the user is allowed to run right now."""
+    return get_next_recommended_step(incident, require_executable=True)
+
+
+def _scenario_key_for_incident(incident: dict) -> str:
+    return incident.get("key") or scenario_key_for_title(incident.get("title", ""))
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +344,7 @@ def sync_recommended_actions_from_db(incident_id: int):
 def get_playbook_phase(incident: dict | None = None) -> str:
     """Return the current playbook phase string for gating UI and actions.
 
-    Phase progression (simplified):
+    Phase progression follows the incident's recommended playbook order:
         closed → awaiting_ack → containment → eradication → post_incident → closed
 
     Returns one of: ``closed``, ``awaiting_ack``, ``containment``,
@@ -303,28 +357,31 @@ def get_playbook_phase(incident: dict | None = None) -> str:
     incident_id = incident.get("incident_id")
     status = incident.get("status", "Active")
 
-    # Terminal DB status always means playbook is done.
     if status in TERMINAL_STATUSES:
         return "closed"
 
-    # User must acknowledge before any response actions unlock.
     if incident_id and not db.is_incident_acknowledged(incident_id):
         return "awaiting_ack"
 
-    completed = db.get_incident_action_keys_completed(incident_id) if incident_id else set()
     recommended = get_recommended_action_keys(incident_id)
+    if not recommended:
+        return "closed"
 
-    # Containment phase: at least one recommended containment step remains.
-    containment_done = any(k in completed for k in CONTAINMENT_KEYS)
-    # Eradication phase uses RESOLUTION_KEYS (actions that close the incident).
-    eradication_done = any(k in completed for k in RESOLUTION_KEYS)
+    completed = _incident_completed_action_keys(incident_id)
+    rec_containment = recommended_steps_in_category(recommended, CONTAINMENT_KEYS)
+    rec_eradication = recommended_steps_in_category(recommended, ERADICATION_KEYS)
+    rec_post = recommended_steps_in_category(recommended, POST_INCIDENT_KEYS)
 
-    if not containment_done and recommended:
+    if any(k not in completed for k in rec_containment):
         return "containment"
-    if not eradication_done and recommended:
+    if any(k not in completed for k in rec_eradication):
         return "eradication"
+    if any(k not in completed for k in rec_post):
+        return "post_incident"
 
-    # Post-incident docs/export only when authority flag is set and not yet done.
+    if all(k in completed for k in recommended):
+        return "closed"
+
     if incident.get("authority_recommended") or incident_id and _db_authority_recommended(incident_id):
         if not any(k in completed for k in POST_INCIDENT_KEYS):
             return "post_incident"
@@ -345,7 +402,9 @@ def can_execute_action(action_key: str, incident: dict) -> bool:
     - Already-completed actions are never re-run.
     - Terminal incidents only allow post_incident category actions.
     - Investigation actions are never user-triggered (auto-run on create).
-    - Category must match the current playbook phase (with low-severity shortcuts).
+    - Category must match the current playbook phase derived from recommendations.
+    - Expert palette: any action in the active phase category; recommended steps
+      in later categories remain blocked until their phase begins.
     """
     action_key = normalize_action_key(action_key)
     action = get_action(action_key)
@@ -355,11 +414,9 @@ def can_execute_action(action_key: str, incident: dict) -> bool:
     incident_id = incident.get("incident_id")
     status = incident.get("status", "Active")
 
-    # Idempotency: one completion per action per incident.
     if incident_id and action_key in db.get_incident_action_keys_completed(incident_id):
         return False
 
-    # Closed incidents: only documentation/export steps remain available.
     if is_terminal_status(status):
         return action["category"] == "post_incident"
 
@@ -368,32 +425,22 @@ def can_execute_action(action_key: str, incident: dict) -> bool:
 
     if phase == "awaiting_ack":
         return False
+    if phase == "closed":
+        if category == "post_incident" and (
+            incident.get("authority_recommended")
+            or (incident_id and _db_authority_recommended(incident_id))
+        ):
+            return True
+        return False
     if category == "investigation":
         return False
 
-    if category == "containment" and phase in ("containment", "eradication", "post_incident"):
-        return True
-
-    if category == "eradication" and phase in ("eradication", "post_incident"):
-        # Low-severity anomalies may skip straight to trust/monitor during containment.
-        if incident.get("severity") == "Low" and phase == "containment":
-            return True
-        if incident_id:
-            completed = db.get_incident_action_keys_completed(incident_id)
-            # Eradication allowed after any containment step, or for low-severity flows.
-            if any(k in completed for k in CONTAINMENT_KEYS) or incident.get("severity") == "Low":
-                return True
-        return phase == "eradication"
-
-    if category == "post_incident":
-        if incident_id:
-            completed = db.get_incident_action_keys_completed(incident_id)
-            # Post-incident unlocks after resolution, eradication, or containment work.
-            if any(k in completed for k in RESOLUTION_KEYS) or any(k in completed for k in ERADICATION_KEYS):
-                return True
-            if any(k in completed for k in CONTAINMENT_KEYS):
-                return True
-        return phase == "post_incident"
+    if phase == "containment":
+        return category == "containment"
+    if phase == "eradication":
+        return category in ("containment", "eradication")
+    if phase == "post_incident":
+        return category in ("containment", "eradication", "post_incident")
 
     return False
 
@@ -551,7 +598,9 @@ def format_playbook_brief(incident: dict, action_keys: list[str]) -> str:
         if action:
             lines.append(f"{index}. **{action['label']}** — _{action['hint']}_")
     lines.append("")
-    lines.append("You can follow these steps or choose any other response action when ready.")
+    lines.append(
+        "I'll unlock each step in order as we go. Use the button below when you're ready for the next one."
+    )
     return "\n".join(lines)
 
 
@@ -559,19 +608,45 @@ def format_chat_action_prompt(incident: dict) -> str:
     """Short nudge text for the next chat action button row."""
     incident_id = incident.get("incident_id")
     phase = get_playbook_phase(incident)
-    recommended = get_recommended_action_keys(incident_id)
-    completed = db.get_incident_action_keys_completed(incident_id) if incident_id else set()
 
-    next_key = next((k for k in recommended if k not in completed), None)
+    if phase == "closed" or is_playbook_complete(incident):
+        return format_playbook_complete_message(incident)
+
+    next_key = get_next_executable_recommended_step(incident)
     if next_key:
+        scenario_key = _scenario_key_for_incident(incident)
+        custom = get_scenario_step_prompt(scenario_key, next_key)
+        if custom:
+            return custom
         action = get_action(next_key)
         label = action.get("plain_label", action["label"]) if action else next_key
         return f"Next recommended step: I can **{label.lower()}**. Should I go ahead?"
 
     if phase == "post_incident":
-        return "Containment and resolution steps are done. Post-incident documentation actions are available if needed."
+        return "Response steps are done. Post-incident documentation actions are available if needed."
 
-    return "Review the recommended playbook or choose another response action."
+    return "Review the recommended playbook on the incident page when you're ready to continue."
+
+
+def format_playbook_complete_message(incident: dict) -> str:
+    """Assistant copy when all recommended playbook steps are finished."""
+    status = incident.get("status", "Unknown")
+    if incident.get("monitor_until"):
+        return (
+            f"Recommended response playbook complete. I'm monitoring **{incident.get('device_name', incident.get('source', 'the device'))}** "
+            f"until **{incident['monitor_until']}**. Post-incident documentation is available on the incident page if needed."
+        )
+    if incident.get("authority_recommended"):
+        return (
+            f"Recommended response playbook complete (status: **{status}**). "
+            "Consider preserving evidence and preparing materials for law enforcement on the incident page."
+        )
+    if is_terminal_status(status):
+        return f"Response playbook complete. Incident status: **{status}**."
+    return (
+        f"Recommended response playbook complete (status: **{status}**). "
+        "Post-incident documentation is available on the incident page if you need it."
+    )
 
 
 def _action_to_chat_button(action_key: str, primary: bool = False) -> dict:
@@ -586,8 +661,15 @@ def _action_to_chat_button(action_key: str, primary: bool = False) -> dict:
     }
 
 
-def get_chat_actions_for_incident(incident: dict) -> list[dict]:
-    """Return up to four chat action buttons appropriate for the current phase."""
+def get_chat_actions_for_incident(incident: dict, *, guided: bool | None = None) -> list[dict]:
+    """Return chat action buttons appropriate for the current playbook state.
+
+    Standard mode uses guided flow (next recommended step only). Expert mode may
+    request the full phase-appropriate pool via ``guided=False``.
+    """
+    if guided is None:
+        guided = not is_expert_mode()
+
     incident_id = incident.get("incident_id")
     if incident_id and not db.is_incident_acknowledged(incident_id):
         if is_terminal_status(incident.get("status", "")):
@@ -595,28 +677,34 @@ def get_chat_actions_for_incident(incident: dict) -> list[dict]:
         return [{"key": ACKNOWLEDGE_ACTION, "label": "Acknowledge alert", "type": "primary"}]
 
     if is_terminal_status(incident.get("status", "")):
-        completed = db.get_incident_action_keys_completed(incident_id) if incident_id else set()
+        completed = _incident_completed_action_keys(incident_id)
         actions = []
         for key in POST_INCIDENT_KEYS:
             if key not in completed and can_execute_action(key, incident):
                 actions.append(_action_to_chat_button(key))
         return actions[:4]
 
-    recommended = get_recommended_action_keys(incident_id)
-    completed = db.get_incident_action_keys_completed(incident_id) if incident_id else set()
-    actions = []
-    next_key = next((k for k in recommended if k not in completed and can_execute_action(k, incident)), None)
-    if next_key:
-        actions.append(_action_to_chat_button(next_key, primary=True))
+    if is_playbook_complete(incident) or get_playbook_phase(incident) == "closed":
+        return []
 
+    next_key = get_next_executable_recommended_step(incident)
+    if not next_key:
+        return []
+
+    if guided:
+        return [_action_to_chat_button(next_key, primary=True)]
+
+    recommended = get_recommended_action_keys(incident_id)
+    completed = _incident_completed_action_keys(incident_id)
+    actions = [_action_to_chat_button(next_key, primary=True)]
     phase = get_playbook_phase(incident)
     pool: list[str] = []
     if phase == "containment":
-        pool = [k for k in recommended if k in CONTAINMENT_KEYS and k not in completed]
+        pool = recommended_steps_in_category(recommended, CONTAINMENT_KEYS)
     elif phase == "eradication":
-        pool = [k for k in recommended if k in ERADICATION_KEYS and k not in completed]
+        pool = recommended_steps_in_category(recommended, ERADICATION_KEYS)
     elif phase == "post_incident":
-        pool = list(POST_INCIDENT_KEYS)
+        pool = recommended_steps_in_category(recommended, POST_INCIDENT_KEYS)
 
     for key in pool:
         if key != next_key and key not in completed and can_execute_action(key, incident):
@@ -674,21 +762,22 @@ def format_where_we_left_off(incident_id: int, incident: dict) -> str:
     recap = last_assistant or "We had started looking at this incident."
 
     next_step = ""
-    rec = db.get_active_playbook_recommendation(incident_id)
-    if rec and rec.get("playbook_actions_json"):
-        try:
-            playbook_keys = json.loads(rec["playbook_actions_json"])
-        except json.JSONDecodeError:
-            playbook_keys = []
-        completed = db.get_incident_action_keys_completed(incident_id)
-        next_key = next((k for k in playbook_keys if k not in completed), None)
-        if next_key:
-            action = get_action(next_key)
-            if action:
+    completed = _incident_completed_action_keys(incident_id)
+    next_key = get_next_executable_recommended_step(incident)
+    if next_key:
+        action = get_action(next_key)
+        if action:
+            scenario_key = _scenario_key_for_incident(incident)
+            custom = get_scenario_step_prompt(scenario_key, next_key)
+            if custom:
+                next_step = f"\n\n{custom}"
+            else:
                 next_step = (
                     f"\n\n**Next recommended step:** {action['plain_label']} — "
                     f"_{action['plain_hint']}_"
                 )
+    elif is_playbook_complete(incident):
+        next_step = f"\n\n{format_playbook_complete_message(incident)}"
 
     if db.is_incident_acknowledged(incident_id):
         footer = "You can continue the response playbook when ready."
@@ -849,7 +938,9 @@ def handle_chat_action(action_key: str, message_index: int) -> bool:
     append_message("assistant", format_plain_action_result(action_key, get_active_incident() or incident))
 
     updated = get_active_incident()
-    if updated and get_playbook_phase(updated) != "closed":
+    if updated and is_playbook_complete(updated):
+        append_message("assistant", format_playbook_complete_message(updated))
+    elif updated and get_playbook_phase(updated) != "closed":
         append_message(
             "assistant",
             format_chat_action_prompt(updated),
@@ -857,7 +948,7 @@ def handle_chat_action(action_key: str, message_index: int) -> bool:
             persist=False,
         )
     elif updated:
-        append_message("assistant", "Response playbook complete. Post-incident steps are available on the incident page if needed.")
+        append_message("assistant", format_playbook_complete_message(updated))
     return True
 
 
@@ -1047,6 +1138,7 @@ def trigger_scan(scan_key: str):
     st.session_state.active_incident_id = db_incident_id
     st.session_state.playbook_phase = "awaiting_ack"
     st.session_state.recommended_action_keys = []
+    st.session_state.recommended_action_incident_id = None
 
     if is_expert_mode():
         append_message("assistant", format_expert_scan_narrative(SCAN_LABELS[scan_key], incident))

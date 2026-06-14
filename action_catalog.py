@@ -256,6 +256,45 @@ SCENARIO_PLAYBOOK_TEMPLATES: dict[str, list[str]] = {
     ],
 }
 
+# Chat prompts offered before each playbook step (scenario → action_key → message).
+SCENARIO_STEP_PROMPTS: dict[str, dict[str, str]] = {
+    "exfiltration": {
+        "sever_connection": "First, stop the active data transfer to the outside address.",
+        "isolate_device": "Connection stopped. Next, take the workstation offline to prevent further spread.",
+        "perm_block": "Device isolated. Block the exfil endpoint permanently.",
+        "prompt_offline_scan": "Block in place. Schedule enhanced monitoring before reconnecting.",
+        "generate_incident_report": "Monitoring scheduled. Generate the incident report to close out response.",
+    },
+    "brute_force": {
+        "port_lockdown": "Close the open door the attacker is using to reach your smart lock.",
+        "perm_block": "Port lockdown is in place. Next, block the outside address permanently.",
+        "require_credential_rotation": "Outside address blocked. Reset passwords so stolen credentials no longer work.",
+    },
+    "lateral_scanning": {
+        "isolate_device": "First, take the scanning device offline so it cannot reach other hosts.",
+        "perm_block": "Device isolated. Block the scanner's address permanently.",
+        "prompt_offline_scan": "Block in place. Schedule a deep scan and monitoring window before reconnecting.",
+    },
+    "low_risk_anomaly": {
+        "prompt_offline_scan": "This looks low risk for now. I recommend watching the device closely for a day or two.",
+        "trust_device": "Monitoring is scheduled. If nothing else turns up, mark the device as trusted.",
+    },
+    "ransomware_beacon": {
+        "sever_connection": "First, sever the outbound staging connection immediately.",
+        "isolate_device": "Connection severed. Quarantine the workstation before encryption spreads.",
+        "dns_sinkhole": "Device isolated. Block command-and-control domains at DNS.",
+        "reimage_wipe_device": "C2 blocked. Wipe and reinstall the workstation from a clean baseline.",
+        "generate_incident_report": "Device remediated. Generate the incident report for records and authority review.",
+    },
+    "command_and_control": {
+        "dns_sinkhole": "First, sinkhole the malicious domains the gateway is calling out to.",
+        "perm_block": "DNS sinkhole active. Block the outside command server address permanently.",
+        "isolate_device": "C2 address blocked. Quarantine the gateway to stop further callbacks.",
+        "patch_remediate": "Gateway isolated. Patch the vulnerability that allowed remote control.",
+        "generate_incident_report": "Patch applied. Generate the incident report to document response and evidence.",
+    },
+}
+
 # Derived category sets — used by incident_scenarios for phase detection and gating.
 CONTAINMENT_KEYS = {k for k, v in ACTIONS.items() if v["category"] == "containment"}
 ERADICATION_KEYS = {k for k, v in ACTIONS.items() if v["category"] == "eradication"}
@@ -313,6 +352,17 @@ def playbook_recommendation_text(incident: dict, action_keys: list[str]) -> str:
     labels = [get_action(k)["label"] for k in action_keys if get_action(k)]
     joined = " → ".join(labels)
     return f"Recommended response for **{incident.get('title', 'this incident')}**: {joined}."
+
+
+def get_scenario_step_prompt(scenario_key: str, action_key: str) -> str | None:
+    """Return scenario-specific chat copy for the next playbook step, if defined."""
+    action_key = normalize_action_key(action_key)
+    return SCENARIO_STEP_PROMPTS.get(scenario_key, {}).get(action_key)
+
+
+def recommended_steps_in_category(recommended: list[str], category_keys: set[str]) -> list[str]:
+    """Filter a playbook order list to one IR category, preserving order."""
+    return [k for k in recommended if k in category_keys]
 
 
 def get_draft_payload(action_key: str, incident: dict) -> dict:

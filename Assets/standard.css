@@ -59,6 +59,19 @@ body:has(.standard-mode-root),
     margin: 0.2rem 0 0.3rem 0 !important;
 }
 
+/* Never clip the shared header toolbar in standard mode */
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.sentinel-app-title),
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.sentinel-header-toolbar),
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has([data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar)),
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) {
+    overflow: visible !important;
+    flex-shrink: 0 !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) .main .block-container > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has(.sentinel-app-title) {
+    flex: 0 0 auto !important;
+}
+
 [data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stMainBlockContainer"],
 [data-testid="stAppViewContainer"]:has(.standard-mode-root) .main .block-container {
     max-width: 100%;

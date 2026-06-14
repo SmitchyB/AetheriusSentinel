@@ -18,13 +18,15 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 # Core modules (business logic + DB layer).
+import action_catalog
 import chat_sessions
 import db
 import incident_scenarios
 import sentinel_actions
 
 # Hot-reload during development so edits to these modules apply without restarting Streamlit.
-for _module in (db, incident_scenarios, chat_sessions, sentinel_actions):
+# action_catalog must reload before incident_scenarios (it imports new symbols from the catalog).
+for _module in (action_catalog, db, incident_scenarios, chat_sessions, sentinel_actions):
     importlib.reload(_module)
 
 import streamlit as st
@@ -114,11 +116,21 @@ with header_left:
 with header_right:
     # Empty shell div — CSS positions the real Streamlit widgets over this slot.
     st.markdown('<div class="sentinel-header-toolbar"></div>', unsafe_allow_html=True)
-    health_col, expert_col, defense_col, alerts_col, analyst_col = st.columns(
-        [0.95, 1, 1, 0.72, 0.38],
-        gap="small",
-        vertical_alignment="center",
-    )
+    # Expert mode is read from session state so the toolbar column count is stable
+    # before widgets render. The hamburger is the only header difference in Expert mode.
+    toolbar_expert_mode = bool(st.session_state.get("expert_mode", False))
+    if toolbar_expert_mode:
+        health_col, expert_col, defense_col, alerts_col, analyst_col = st.columns(
+            [0.95, 1, 1, 0.72, 0.38],
+            gap="small",
+            vertical_alignment="center",
+        )
+    else:
+        health_col, expert_col, defense_col, alerts_col = st.columns(
+            [0.95, 1, 1, 0.72],
+            gap="small",
+            vertical_alignment="center",
+        )
     with health_col:
         render_header_health_badge()  # DB-backed Operational / Critical / etc.
     with expert_col:
@@ -126,11 +138,9 @@ with header_right:
     with defense_col:
         render_auto_defense_toggle()  # UI-only for now; no policy engine wired
     with alerts_col:
-        render_expert_notification_bell()  # Open incident count badge
-    with analyst_col:
-        st.markdown('<div class="sentinel-header-analyst-slot"></div>', unsafe_allow_html=True)
-        # Analyst chat drawer toggle only appears in Expert mode.
-        if expert_mode:
+        render_expert_notification_bell()  # Open incident count badge (both modes)
+    if toolbar_expert_mode:
+        with analyst_col:
             st.markdown(
                 '<div class="standard-btn-marker sentinel-btn--header-analyst"></div>',
                 unsafe_allow_html=True,

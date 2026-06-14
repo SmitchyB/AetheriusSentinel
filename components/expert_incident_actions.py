@@ -12,11 +12,13 @@ from components.expert_action_form import render_expert_action_approval
 from components.styled_buttons import render_action_button_marker, render_button_marker
 from incident_scenarios import (
     acknowledge_incident_flow,
-    build_active_incident_from_db,
     can_execute_action,
     can_show_acknowledge,
+    format_playbook_complete_message,
+    get_next_executable_recommended_step,
     get_playbook_phase,
     get_recommended_action_keys,
+    is_playbook_complete,
     is_terminal_status,
 )
 
@@ -98,6 +100,35 @@ def render_actions_taken(incident_id: int):
         st.caption(f"{row.get('created_at', '')} · {row.get('action_category', '')}")
 
 
+def _select_detail_action(incident_id: int, action_key: str) -> None:
+    """Store which response action the analyst chose to configure on the detail page."""
+    st.session_state[f"expert_action_form_{incident_id}"] = action_key
+
+
+def _clear_detail_action(incident_id: int) -> None:
+    st.session_state.pop(f"expert_action_form_{incident_id}", None)
+
+
+def _active_response_category(
+    *,
+    phase: str,
+    next_category: str | None,
+    selected: str | None,
+) -> str | None:
+    """Pick which IR category expander should stay open for buttons and inline forms."""
+    if selected:
+        selected_action = get_action(selected)
+        if selected_action:
+            return selected_action["category"]
+    if next_category:
+        return next_category
+    if phase in ACTION_CATEGORIES:
+        return phase
+    if phase == "closed":
+        return "post_incident"
+    return None
+
+
 def render_response_actions(incident_id: int, incident: dict):
     """
     Expandable action palette grouped by IR category (containment, eradication, etc.).
@@ -116,6 +147,10 @@ def render_response_actions(incident_id: int, incident: dict):
         st.info("Acknowledge the alert to unlock containment and resolution actions.")
         return
 
+    if phase == "closed" and not is_terminal_status(incident.get("status", "")):
+        if is_playbook_complete(incident):
+            st.success(format_playbook_complete_message(incident))
+
     if is_terminal_status(incident.get("status", "")):
         st.info(
             "This incident is closed. Only post-incident and documentation actions are available."
@@ -128,13 +163,27 @@ def render_response_actions(incident_id: int, incident: dict):
         "post_incident": "Post-Incident & Documentation",
     }
 
+    next_key = get_next_executable_recommended_step(incident)
+    next_category = None
+    if next_key:
+        next_action = get_action(next_key)
+        if next_action:
+            next_category = next_action["category"]
+
+    selected = st.session_state.get(f"expert_action_form_{incident_id}")
+    active_category = _active_response_category(
+        phase=phase,
+        next_category=next_category,
+        selected=selected,
+    )
+
     for category in ACTION_CATEGORIES:
         # Closed incidents hide all categories except post_incident documentation.
         if is_terminal_status(incident.get("status", "")) and category != "post_incident":
             continue
 
         expanded = category == "post_incident" if is_terminal_status(incident.get("status", "")) else (
-            category == "containment" and phase == "containment"
+            category == active_category
         )
         with st.expander(category_labels.get(category, category.title()), expanded=expanded):
             category_actions = [
@@ -163,28 +212,33 @@ def render_response_actions(incident_id: int, incident: dict):
 
                 form_key = f"expert_detail_action_{incident_id}_{action_key}"
                 render_action_button_marker(action_key)
-                if st.button(
+                st.button(
                     f"Configure {action['label']}",
                     key=form_key,
                     use_container_width=True,
                     type="secondary",
-                ):
-                    st.session_state[f"expert_action_form_{incident_id}"] = action_key
-                    st.rerun()
+                    on_click=_select_detail_action,
+                    args=(incident_id, action_key),
+                )
+
+                if selected == action_key:
+                    st.markdown('<div class="expert-draft-form"></div>', unsafe_allow_html=True)
+                    render_expert_action_approval(
+                        action_key,
+                        incident,
+                        key_prefix=f"expert_detail_{incident_id}",
+                        incident_id=incident_id,
+                    )
+                    if st.button(
+                        "Cancel",
+                        key=f"expert_detail_cancel_{incident_id}_{action_key}",
+                        use_container_width=True,
+                    ):
+                        _clear_detail_action(incident_id)
+                        st.rerun()
 
             if not visible_actions:
                 st.caption("No actions available in this category right now.")
-
-    # Show parameter form for the action user clicked "Configure" on.
-    selected = st.session_state.get(f"expert_action_form_{incident_id}")
-    if selected:
-        active = build_active_incident_from_db(incident) if incident.get("incident_id") else incident
-        render_expert_action_approval(
-            selected,
-            active,
-            key_prefix=f"expert_detail_{incident_id}",
-            incident_id=incident_id,
-        )
 
 
 def render_acknowledge_button(incident_id: int, incident: dict):

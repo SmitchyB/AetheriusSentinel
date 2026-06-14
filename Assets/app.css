@@ -12,6 +12,20 @@ body,
 
 :root {
     --sentinel-streamlit-header-h: 3.75rem;
+    --sentinel-header-control-h: 3.5rem;
+    --sentinel-header-pill-h: 2.35rem;
+    --sentinel-header-health-w: 11rem;
+    --sentinel-header-alerts-w: 7.25rem;
+    --sentinel-header-expert-toggle-w: 14rem;
+    --sentinel-header-defense-toggle-w: 14.5rem;
+    --sentinel-header-toolbar-gap: 0.75rem;
+    --expert-toggle-gap: 8px;
+    --expert-toggle-track-w: 5.5rem;
+    --expert-toggle-track-h: 2.35rem;
+    --expert-toggle-thumb: 1.85rem;
+    --auto-defense-gap: 8px;
+    --auto-defense-btn-w: 4.75rem;
+    --auto-defense-btn-h: 2.35rem;
 }
 
 [data-testid="stHeader"] {
@@ -28,6 +42,11 @@ body,
     padding-top: var(--sentinel-streamlit-header-h) !important;
 }
 
+/* Header divider — same spacing in standard and expert modes */
+[data-testid="stMainBlockContainer"] hr {
+    margin: 0.2rem 0 0.3rem 0 !important;
+}
+
 /* Header layout — title left, toolbar right, single row */
 div[data-testid="stHorizontalBlock"]:has(.sentinel-app-title) {
     display: flex !important;
@@ -38,6 +57,9 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-app-title) {
     width: 100% !important;
     overflow: visible !important;
     flex: 0 0 auto !important;
+    min-height: var(--sentinel-header-control-h) !important;
+    height: var(--sentinel-header-control-h) !important;
+    max-height: var(--sentinel-header-control-h) !important;
 }
 
 div[data-testid="stHorizontalBlock"]:has(.sentinel-app-title) > [data-testid="stColumn"] {
@@ -62,9 +84,17 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar):not(:has(.sen
     flex-wrap: nowrap !important;
     align-items: center !important;
     justify-content: flex-end !important;
-    gap: 0.45rem !important;
+    gap: var(--sentinel-header-toolbar-gap) !important;
     width: 100% !important;
     overflow: visible !important;
+}
+
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] + [data-testid="stColumn"] {
+    margin-left: var(--sentinel-header-toolbar-gap) !important;
+}
+
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-header-health-slot) + [data-testid="stColumn"] {
+    margin-left: 1rem !important;
 }
 
 :root {
@@ -130,9 +160,37 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar):not(:has(.sen
     overflow: visible !important;
 }
 
+/* Toolbar row — every control column shares one centered row height */
 [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] {
     min-width: 0 !important;
+    min-height: var(--sentinel-header-control-h) !important;
+    height: var(--sentinel-header-control-h) !important;
+    max-height: var(--sentinel-header-control-h) !important;
     margin: 0 !important;
+    align-items: center !important;
+    gap: var(--sentinel-header-toolbar-gap) !important;
+}
+
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > [data-testid="stVerticalBlock"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: var(--sentinel-header-control-h) !important;
+    height: var(--sentinel-header-control-h) !important;
+    max-height: var(--sentinel-header-control-h) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+[data-testid="stColumn"]:has(.sentinel-header-health-slot) > [data-testid="stVerticalBlock"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: var(--sentinel-header-control-h) !important;
+    height: var(--sentinel-header-control-h) !important;
+    max-height: var(--sentinel-header-control-h) !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 [data-testid="stColumn"]:has(.sentinel-header-toolbar) > [data-testid="stVerticalBlock"],
@@ -143,6 +201,7 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar):not(:has(.sen
 
 [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
     flex: 0 0 auto !important;
+    flex-basis: auto !important;
     width: auto !important;
     min-width: max-content !important;
     max-width: none !important;
@@ -151,26 +210,49 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar):not(:has(.sen
     justify-content: center !important;
     align-self: center !important;
     min-height: var(--sentinel-header-control-h) !important;
-    height: auto !important;
+    height: var(--sentinel-header-control-h) !important;
+    max-height: var(--sentinel-header-control-h) !important;
 }
 
 [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-header-health-slot),
 [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.expert-mode-toggle),
 [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.auto-defense-toggle),
 [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-btn--header-alerts),
-[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-btn--header-analyst) {
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-btn--header-analyst),
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-header-analyst-slot) {
     flex: 0 0 auto !important;
     min-width: max-content !important;
 }
 
-[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-btn--header-alerts) {
-    min-width: 6.75rem !important;
-    max-width: 8.5rem !important;
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-header-health-slot) {
+    min-width: var(--sentinel-header-health-w) !important;
+    max-width: var(--sentinel-header-health-w) !important;
+    width: var(--sentinel-header-health-w) !important;
 }
 
-[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-btn--header-analyst) {
-    min-width: 2.75rem !important;
-    max-width: 3.25rem !important;
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-btn--header-alerts) {
+    min-width: var(--sentinel-header-alerts-w) !important;
+    max-width: var(--sentinel-header-alerts-w) !important;
+    width: var(--sentinel-header-alerts-w) !important;
+}
+
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.expert-mode-toggle) {
+    min-width: var(--sentinel-header-expert-toggle-w) !important;
+    max-width: var(--sentinel-header-expert-toggle-w) !important;
+    width: var(--sentinel-header-expert-toggle-w) !important;
+}
+
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.auto-defense-toggle) {
+    min-width: var(--sentinel-header-defense-toggle-w) !important;
+    max-width: var(--sentinel-header-defense-toggle-w) !important;
+    width: var(--sentinel-header-defense-toggle-w) !important;
+}
+
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-btn--header-analyst),
+[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) > [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has(.sentinel-header-analyst-slot) {
+    min-width: var(--sentinel-header-control-h) !important;
+    max-width: var(--sentinel-header-control-h) !important;
+    width: var(--sentinel-header-control-h) !important;
 }
 
 /* Header button columns — collapse marker rows so buttons align with toggles */
@@ -211,27 +293,52 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar):not(:has(.sen
 }
 
 [data-testid="stColumn"]:has(.sentinel-header-analyst-slot):not(:has([data-testid="stButton"])) {
-    display: none !important;
-    width: 0 !important;
-    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: var(--sentinel-header-control-h) !important;
+    max-width: var(--sentinel-header-control-h) !important;
+    width: var(--sentinel-header-control-h) !important;
     padding: 0 !important;
     margin: 0 !important;
     overflow: hidden !important;
 }
 
-[data-testid="stColumn"]:has(.sentinel-btn--header-alerts) {
-    min-width: 6.75rem !important;
-    max-width: 8.5rem !important;
+[data-testid="stColumn"]:has(.sentinel-header-health-slot) {
+    min-width: var(--sentinel-header-health-w) !important;
+    max-width: var(--sentinel-header-health-w) !important;
+    width: var(--sentinel-header-health-w) !important;
 }
 
-[data-testid="stColumn"]:has(.sentinel-btn--header-analyst) {
-    min-width: 2.75rem !important;
-    max-width: 3.25rem !important;
+[data-testid="stColumn"]:has(.expert-mode-toggle) {
+    min-width: var(--sentinel-header-expert-toggle-w) !important;
+    max-width: var(--sentinel-header-expert-toggle-w) !important;
+    width: var(--sentinel-header-expert-toggle-w) !important;
+}
+
+[data-testid="stColumn"]:has(.auto-defense-toggle) {
+    min-width: var(--sentinel-header-defense-toggle-w) !important;
+    max-width: var(--sentinel-header-defense-toggle-w) !important;
+    width: var(--sentinel-header-defense-toggle-w) !important;
+}
+
+[data-testid="stColumn"]:has(.sentinel-btn--header-alerts) {
+    min-width: var(--sentinel-header-alerts-w) !important;
+    max-width: var(--sentinel-header-alerts-w) !important;
+    width: var(--sentinel-header-alerts-w) !important;
+}
+
+[data-testid="stColumn"]:has(.sentinel-btn--header-analyst),
+[data-testid="stColumn"]:has(.sentinel-header-analyst-slot) {
+    min-width: var(--sentinel-header-control-h) !important;
+    max-width: var(--sentinel-header-control-h) !important;
+    width: var(--sentinel-header-control-h) !important;
 }
 
 [data-testid="stElementContainer"]:has(.sentinel-btn--header-alerts) + [data-testid="stElementContainer"] {
-    width: auto !important;
-    max-width: 8.5rem !important;
+    width: var(--sentinel-header-alerts-w) !important;
+    min-width: var(--sentinel-header-alerts-w) !important;
+    max-width: var(--sentinel-header-alerts-w) !important;
 }
 
 [data-testid="stElementContainer"]:has(.sentinel-btn--header-alerts) + [data-testid="stElementContainer"] button {
@@ -310,14 +417,6 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar):not(:has(.sen
 }
 
 /* Expert Mode custom toggle */
-:root {
-    --expert-toggle-gap: 8px;
-    --expert-toggle-track-w: 5.5rem;
-    --expert-toggle-track-h: 2.35rem;
-    --expert-toggle-thumb: 1.85rem;
-    --sentinel-header-control-h: 3.5rem;
-}
-
 div[data-testid="stHorizontalBlock"]:has(.expert-mode-toggle),
 div[data-testid="stColumn"]:has(.expert-mode-toggle) {
     overflow: visible !important;
@@ -338,11 +437,13 @@ div[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .exp
     align-items: center !important;
     justify-content: flex-start !important;
     gap: var(--expert-toggle-gap) !important;
-    width: max-content !important;
+    width: 100% !important;
+    min-width: 100% !important;
     max-width: 100% !important;
-    min-height: unset !important;
-    height: auto !important;
-    padding: 0.45rem 0.6rem 0.45rem 0.85rem !important;
+    min-height: var(--sentinel-header-control-h) !important;
+    height: var(--sentinel-header-control-h) !important;
+    max-height: var(--sentinel-header-control-h) !important;
+    padding: 0 0.85rem 0 0.85rem !important;
     border-radius: 999px !important;
     border: 2px solid transparent !important;
     background:
@@ -414,7 +515,7 @@ div[data-testid="stColumn"]:has(.expert-mode-toggle) [data-testid="stElementCont
 .expert-mode-toggle__label {
     font-family: "Orbitron", sans-serif;
     font-weight: 700;
-    font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+    font-size: 0.88rem;
     line-height: 1;
     letter-spacing: 0.05em;
     color: #ffffff;
@@ -510,12 +611,6 @@ div[data-testid="stColumn"]:has(.expert-mode-toggle) [data-testid="stCheckbox"] 
 }
 
 /* Auto Defense on/off button toggle */
-:root {
-    --auto-defense-gap: 8px;
-    --auto-defense-btn-w: 4.75rem;
-    --auto-defense-btn-h: 2.35rem;
-}
-
 div[data-testid="stHorizontalBlock"]:has(.auto-defense-toggle),
 div[data-testid="stColumn"]:has(.auto-defense-toggle) {
     overflow: visible !important;
@@ -536,11 +631,13 @@ div[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .aut
     align-items: center !important;
     justify-content: flex-start !important;
     gap: var(--auto-defense-gap) !important;
-    width: max-content !important;
+    width: 100% !important;
+    min-width: 100% !important;
     max-width: 100% !important;
-    min-height: unset !important;
-    height: auto !important;
-    padding: 0.45rem 0.6rem 0.45rem 0.85rem !important;
+    min-height: var(--sentinel-header-control-h) !important;
+    height: var(--sentinel-header-control-h) !important;
+    max-height: var(--sentinel-header-control-h) !important;
+    padding: 0 0.85rem 0 0.85rem !important;
     border-radius: 999px !important;
     border: 2px solid transparent !important;
     background:
@@ -612,7 +709,7 @@ div[data-testid="stColumn"]:has(.auto-defense-toggle) [data-testid="stElementCon
 .auto-defense-toggle__label {
     font-family: "Orbitron", sans-serif;
     font-weight: 700;
-    font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+    font-size: 0.88rem;
     line-height: 1;
     letter-spacing: 0.05em;
     color: #ffffff;
@@ -725,23 +822,8 @@ div[data-testid="stColumn"]:has(.auto-defense-toggle) [data-testid="stCheckbox"]
 }
 
 @media (max-width: 900px) {
-    :root {
-        --expert-toggle-track-w: 5rem;
-        --expert-toggle-track-h: 2.1rem;
-        --expert-toggle-thumb: 1.65rem;
-    }
-
-    .expert-mode-toggle__label {
-        font-size: 0.88rem !important;
-    }
-
-    :root {
-        --auto-defense-btn-w: 4.35rem;
-        --auto-defense-btn-h: 2.1rem;
-    }
-
-    .auto-defense-toggle__label {
-        font-size: 0.88rem !important;
+    h1.sentinel-app-title {
+        font-size: 1.55rem !important;
     }
 }
 
@@ -767,32 +849,14 @@ div[data-testid="stColumn"]:has(.auto-defense-toggle) [data-testid="stCheckbox"]
 }
 
 @media (max-width: 420px) {
-    :root {
-        --expert-toggle-gap: 6px;
-        --expert-toggle-track-w: 4.5rem;
-        --expert-toggle-track-h: 1.9rem;
-        --expert-toggle-thumb: 1.45rem;
+    h1.sentinel-app-title {
+        font-size: 1.25rem !important;
     }
+}
 
-    .expert-mode-toggle__label {
-        font-size: 0.78rem !important;
-        letter-spacing: 0.03em !important;
-    }
-
-    :root {
-        --auto-defense-gap: 6px;
-        --auto-defense-btn-w: 3.85rem;
-        --auto-defense-btn-h: 1.9rem;
-    }
-
-    .auto-defense-toggle__label {
-        font-size: 0.78rem !important;
-        letter-spacing: 0.03em !important;
-    }
-
-    div[data-testid="stColumn"]:has(.auto-defense-toggle) [data-testid="stCheckbox"] label > div:first-child::after {
-        font-size: 0.54rem !important;
-    }
+/* Header divider — same spacing in standard and expert modes */
+[data-testid="stMainBlockContainer"] hr {
+    margin: 0.2rem 0 0.3rem 0 !important;
 }
 
 h1.sentinel-app-title,
@@ -813,10 +877,10 @@ h3.standard-section-title {
 
 h1.sentinel-app-title {
     font-weight: 700;
-    font-size: clamp(1.15rem, 2.8vw, 2.25rem);
-    line-height: 1.2;
-    margin: 0;
-    padding: 0;
+    font-size: 1.85rem;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     filter: drop-shadow(0 2px 6px rgba(0, 163, 255, 0.4));
 }
 
@@ -842,16 +906,23 @@ h3.standard-section-title {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: var(--sentinel-header-control-h, 3.5rem);
+    width: 100%;
+    min-height: var(--sentinel-header-control-h);
+    height: var(--sentinel-header-control-h);
 }
 
 .sentinel-health-badge {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.45rem;
-    padding: 0.45rem 0.85rem;
-    min-height: 2.35rem;
+    width: 100%;
+    max-width: 100%;
+    height: var(--sentinel-header-control-h);
+    min-height: var(--sentinel-header-control-h);
+    padding: 0 0.85rem;
     border-radius: 999px;
+    box-sizing: border-box;
     border: 2px solid transparent;
     background:
         linear-gradient(180deg, #0a0e1a 0%, #010e37 100%) padding-box,
@@ -878,6 +949,8 @@ h3.standard-section-title {
     letter-spacing: 0.06em;
     color: #e8f4ff;
     text-shadow: 0 0 8px rgba(0, 163, 255, 0.55);
+    min-width: 4.75rem;
+    text-align: center;
 }
 
 .sentinel-health-badge--operational .sentinel-health-badge__value {

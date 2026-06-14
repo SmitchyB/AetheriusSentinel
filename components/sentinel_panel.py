@@ -61,7 +61,7 @@ def _render_chat_actions(message: dict, message_index: int, pending_index: int |
             action["label"],
             key=f"chat_action_{message_index}_{action['key']}",
             use_container_width=True,
-            type="secondary",
+            type="primary" if action.get("type") == "primary" else "secondary",
         ):
             action_key = action["key"]
             # Prior-session bootstrap actions vs normal playbook actions.

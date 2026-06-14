@@ -22,7 +22,7 @@ def render_expert_notification_bell():
     except Exception:
         count = 0
 
-    badge = f" ({count})" if count else ""
+    badge = f" ({count})"
     label = f"Alerts{badge}"
     st.markdown(
         '<div class="standard-btn-marker sentinel-btn--header-alerts"></div>',
