@@ -11,21 +11,21 @@ body,
 }
 
 :root {
-    --sentinel-streamlit-header-h: 3.75rem;
-    --sentinel-header-control-h: 3.5rem;
-    --sentinel-header-pill-h: 2.35rem;
-    --sentinel-header-health-w: 11rem;
-    --sentinel-header-alerts-w: 7.25rem;
-    --sentinel-header-expert-toggle-w: 14rem;
-    --sentinel-header-defense-toggle-w: 14.5rem;
-    --sentinel-header-toolbar-gap: 0.75rem;
-    --expert-toggle-gap: 8px;
-    --expert-toggle-track-w: 5.5rem;
-    --expert-toggle-track-h: 2.35rem;
-    --expert-toggle-thumb: 1.85rem;
-    --auto-defense-gap: 8px;
-    --auto-defense-btn-w: 4.75rem;
-    --auto-defense-btn-h: 2.35rem;
+    --sentinel-streamlit-header-h: 3.25rem;
+    --sentinel-header-control-h: 2.75rem;
+    --sentinel-header-pill-h: 1.9rem;
+    --sentinel-header-health-w: 9.25rem;
+    --sentinel-header-alerts-w: 6rem;
+    --sentinel-header-expert-toggle-w: 11.5rem;
+    --sentinel-header-defense-toggle-w: 11.75rem;
+    --sentinel-header-toolbar-gap: 0.5rem;
+    --expert-toggle-gap: 6px;
+    --expert-toggle-track-w: 4.75rem;
+    --expert-toggle-track-h: 1.9rem;
+    --expert-toggle-thumb: 1.5rem;
+    --auto-defense-gap: 6px;
+    --auto-defense-btn-w: 4rem;
+    --auto-defense-btn-h: 1.9rem;
 }
 
 [data-testid="stHeader"] {
@@ -53,7 +53,7 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-app-title) {
     flex-wrap: nowrap !important;
     align-items: center !important;
     justify-content: space-between !important;
-    gap: 0.75rem 1rem !important;
+    gap: 0.5rem 0.65rem !important;
     width: 100% !important;
     overflow: visible !important;
     flex: 0 0 auto !important;
@@ -358,7 +358,7 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar):not(:has(.sen
         var(--sentinel-blue-accent) border-box !important;
     color: var(--sentinel-text) !important;
     font-family: "Inter", sans-serif !important;
-    font-size: 0.84rem !important;
+    font-size: 0.76rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.02em !important;
     box-shadow: var(--btn-blue-shadow) !important;
@@ -377,7 +377,7 @@ div[data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar):not(:has(.sen
         var(--sentinel-purple-accent) border-box !important;
     color: var(--sentinel-text) !important;
     font-family: "Inter", sans-serif !important;
-    font-size: 0.84rem !important;
+    font-size: 0.76rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.02em !important;
     box-shadow: var(--btn-purple-shadow) !important;
@@ -515,7 +515,7 @@ div[data-testid="stColumn"]:has(.expert-mode-toggle) [data-testid="stElementCont
 .expert-mode-toggle__label {
     font-family: "Orbitron", sans-serif;
     font-weight: 700;
-    font-size: 0.88rem;
+    font-size: 0.76rem;
     line-height: 1;
     letter-spacing: 0.05em;
     color: #ffffff;
@@ -709,7 +709,7 @@ div[data-testid="stColumn"]:has(.auto-defense-toggle) [data-testid="stElementCon
 .auto-defense-toggle__label {
     font-family: "Orbitron", sans-serif;
     font-weight: 700;
-    font-size: 0.88rem;
+    font-size: 0.76rem;
     line-height: 1;
     letter-spacing: 0.05em;
     color: #ffffff;
@@ -877,7 +877,7 @@ h3.standard-section-title {
 
 h1.sentinel-app-title {
     font-weight: 700;
-    font-size: 1.85rem;
+    font-size: 1.45rem;
     line-height: 1.2 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -936,7 +936,7 @@ h3.standard-section-title {
 
 .sentinel-health-badge__label {
     font-family: "Orbitron", sans-serif;
-    font-size: 0.65rem;
+    font-size: 0.58rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: rgba(180, 210, 255, 0.75);
@@ -944,12 +944,12 @@ h3.standard-section-title {
 
 .sentinel-health-badge__value {
     font-family: "Orbitron", sans-serif;
-    font-size: 0.78rem;
+    font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     color: #e8f4ff;
     text-shadow: 0 0 8px rgba(0, 163, 255, 0.55);
-    min-width: 4.75rem;
+    min-width: 4rem;
     text-align: center;
 }
 
@@ -1236,4 +1236,119 @@ h3.standard-section-title {
 [data-testid="stMainBlockContainer"] div[data-testid="stHorizontalBlock"]:has(.sentinel-app-title) > [data-testid="stColumn"]:last-child {
     flex: 1 1 0% !important;
     min-width: 0 !important;
+}
+
+/* Header alerts overlay — fixed dropdown, no page layout shift */
+:root {
+    --sentinel-notifications-overlay-w: 19.5rem;
+    --sentinel-notifications-overlay-max-h: 15.5rem;
+}
+
+.sentinel-notifications-scroll {
+    display: none;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay),
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) {
+    position: fixed !important;
+    top: calc(var(--sentinel-streamlit-header-h) + 0.35rem) !important;
+    right: 1rem !important;
+    left: auto !important;
+    bottom: auto !important;
+    z-index: 100000 !important;
+    width: min(var(--sentinel-notifications-overlay-w), calc(100vw - 1.5rem)) !important;
+    max-width: var(--sentinel-notifications-overlay-w) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    flex: none !important;
+    pointer-events: auto !important;
+    overflow: visible !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay),
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) {
+    right: 4.75rem !important;
+}
+
+[data-testid="stElementContainer"]:has(.sentinel-notifications-overlay) {
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    flex: 0 0 0 !important;
+    border: none !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) > div > [data-testid="stVerticalBlock"],
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) > [data-testid="stVerticalBlock"] {
+    max-height: var(--sentinel-notifications-overlay-max-h) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 0.45rem 0.55rem 0.5rem !important;
+    gap: 0.2rem !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 163, 255, 0.45) rgba(4, 12, 32, 0.6);
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) > div > [data-testid="stVerticalBlock"]::-webkit-scrollbar,
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) > [data-testid="stVerticalBlock"]::-webkit-scrollbar {
+    width: 6px;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) > div > [data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb,
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) > [data-testid="stVerticalBlock"]::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(0, 163, 255, 0.45);
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stHorizontalBlock"]:has([data-testid="stMarkdown"]) {
+    align-items: center !important;
+    gap: 0.25rem !important;
+    margin-bottom: 0.15rem !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stMarkdown"] p {
+    margin: 0 !important;
+    font-size: 0.82rem !important;
+    line-height: 1.25 !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stButton"] {
+    margin-bottom: 0 !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stButton"] button,
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stButton"] button {
+    min-height: 1.85rem !important;
+    height: auto !important;
+    padding: 0.28rem 0.5rem !important;
+    font-size: 0.76rem !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stButton"] button p,
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stButton"] button p {
+    font-size: 0.76rem !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stHorizontalBlock"]:has([data-testid="stButton"]) button,
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stHorizontalBlock"]:has([data-testid="stButton"]) button {
+    min-height: 1.55rem !important;
+    min-width: 1.55rem !important;
+    padding: 0 !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stAlert"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stNotification"],
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stAlert"],
+[data-testid="stLayoutWrapper"]:has(.sentinel-notifications-overlay) [data-testid="stNotification"] {
+    padding: 0.35rem 0.5rem !important;
+    font-size: 0.78rem !important;
 }

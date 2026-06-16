@@ -3,6 +3,7 @@ PRAGMA foreign_keys = ON;
 -- Drop child tables first to prevent foreign key constraint violations
 DROP TABLE IF EXISTS chat_messages;
 DROP TABLE IF EXISTS incident_actions;
+DROP TABLE IF EXISTS incident_updates;
 DROP TABLE IF EXISTS incident_indicators;
 DROP TABLE IF EXISTS recommendations;
 DROP TABLE IF EXISTS incident_events;
@@ -31,8 +32,10 @@ CREATE TABLE incidents (
     acknowledged_at TEXT,
     monitor_until TEXT,
     authority_recommended INTEGER DEFAULT 0,
+    chat_session_id TEXT,
     FOREIGN KEY (device_id) REFERENCES devices(device_id)
 );
+CREATE INDEX idx_incidents_chat_session ON incidents(chat_session_id);
 
 --Create incident_events table (child of incidents)
 CREATE TABLE incident_events (
@@ -111,3 +114,18 @@ CREATE TABLE incident_actions (
     FOREIGN KEY (incident_id) REFERENCES incidents(incident_id)
 );
 CREATE INDEX idx_incident_actions_incident ON incident_actions(incident_id);
+
+-- Pending update alerts for in-progress incidents (monitoring complete, etc.)
+CREATE TABLE incident_updates (
+    update_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id INTEGER NOT NULL,
+    update_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary_text TEXT,
+    payload_json TEXT,
+    created_at TEXT NOT NULL,
+    acknowledged_at TEXT,
+    FOREIGN KEY (incident_id) REFERENCES incidents(incident_id)
+);
+CREATE INDEX idx_incident_updates_incident ON incident_updates(incident_id);
+CREATE INDEX idx_incident_updates_pending ON incident_updates(incident_id, acknowledged_at);

@@ -1,7 +1,52 @@
 """
 Expert mode incident detail page — full record inspection and response palette.
 
-Assignment 4.2 detail view + future AI evidence preview (get_ai_incident_context).
+Purpose
+-------
+Assignment 4.2 drill-down view: summary header, chat actions, AI recommendations,
+actions taken, AI analyst evidence table, security events timeline, and full
+response action palette. Rendered when ``expert_view == "incident_detail"``.
+
+Navigation / call graph
+-----------------------
+``expert_router`` → ``render_expert_incident_detail()`` when
+``st.session_state.expert_incident_id`` is set.
+
+Back button → ``navigate_to_overview()``.
+Chat buttons → ``open_incident_chat`` / ``start_general_chat`` + drawer open.
+
+Session state dependencies
+--------------------------
+- ``expert_incident_id`` — required; DB primary key for all panels.
+- ``side_panel_open`` — opened by chat / start investigation buttons.
+- Playbook phase from ``incident_scenarios.build_active_incident_from_db``.
+
+Streamlit widget keys
+---------------------
+- ``expert_detail_back``, ``expert_detail_back_empty`` — back navigation.
+- ``expert_detail_start_investigation`` — ack gate shortcut.
+- ``expert_detail_new_general_chat_{incident_id}`` — general Q&A thread.
+- Sub-module keys from ``expert_incident_actions``.
+
+CSS marker divs
+---------------
+- ``expert-incident-detail-root`` — page scope.
+- Panel cards: ``expert-detail-summary-panel``, ``expert-ai-recommendations-panel``,
+  ``expert-actions-taken-panel``, ``expert-ai-evidence-panel``,
+  ``expert-detail-events-panel``, ``expert-detail-playbook-panel``.
+- ``expert-detail-back-row``, ``expert-detail-chat-actions``,
+  ``expert-detail-investigation-action``.
+
+db.py
+-----
+- ``DB_PATH.exists()``, ``get_incident_by_id``, ``is_incident_acknowledged``.
+- ``get_ai_incident_context(incident_id)`` — evidence table (JOIN/GROUP_CONCAT).
+- ``get_incident_events(incident_id)`` — security events dataframe.
+
+ai_service.py
+-------------
+- **Not used** directly. ``get_ai_incident_context`` is DB context for future LLM
+  prompts, not live AI output.
 """
 
 import streamlit as st
@@ -9,24 +54,27 @@ import streamlit as st
 import db
 import incident_scenarios
 from components.expert_incident_actions import (
-    render_acknowledge_button,
     render_actions_taken,
     render_ai_recommendations,
+    render_open_chat_button,
     render_response_actions,
 )
-from components.chat_history import render_incident_session_tiles
 from components.expert_navigation import navigate_to_overview
 from components.styled_buttons import UI_MARKERS, render_button_marker
 from incident_scenarios import (
-    can_show_open_analyst_chat,
     can_show_start_investigation,
-    get_active_incident,
+    is_terminal_status,
     open_incident_chat,
 )
+from sentinel_actions import start_general_chat
 
 
 def _render_incident_summary(incident: dict):
-    """Header block: title, severity badge, device/IP/MAC captions."""
+    """
+    Header block: title, severity badge, device/IP/MAC captions.
+
+    HTML: ``expert-detail-header``, ``expert-detail-title``, ``expert-severity-badge``.
+    """
     severity = incident.get("severity", "Unknown")
     severity_class = severity.lower().replace(" ", "-")
     st.markdown(
@@ -52,7 +100,7 @@ def _render_ai_evidence(incident_id: int):
     """
     Display AI Analyst Evidence table — DB context for future LLM, not AI output.
 
-    Uses get_ai_incident_context() JOIN + GROUP_CONCAT query from db.py.
+    db.py: ``get_ai_incident_context(incident_id)`` — JOIN + GROUP_CONCAT query.
     """
     st.markdown(
         '<h3 class="standard-section-title standard-section-title--compact">AI Analyst Evidence</h3>',
@@ -72,7 +120,11 @@ def _render_ai_evidence(incident_id: int):
 
 
 def _render_incident_events(incident_id: int):
-    """Security events timeline for one incident from incident_events table."""
+    """
+    Security events timeline for one incident from incident_events table.
+
+    db.py: ``get_incident_events(incident_id)``.
+    """
     st.markdown(
         '<h3 class="standard-section-title standard-section-title--compact">Security Events</h3>',
         unsafe_allow_html=True,
@@ -95,37 +147,63 @@ def _render_incident_events(incident_id: int):
         )
 
 
-def _render_related_sessions(incident_id: int, incident_title: str):
-    """Chat history tiles scoped to this incident_id."""
-    st.markdown(
-        '<h3 class="standard-section-title standard-section-title--compact">Related Chat Sessions</h3>',
-        unsafe_allow_html=True,
-    )
-    render_incident_session_tiles(
-        incident_id,
-        incident_title=incident_title,
-        key_prefix=f"expert_incident_sessions_{incident_id}",
-        open_side_panel=True,
-    )
+def _render_back_to_dashboard(*, key: str) -> None:
+    """
+    Left-aligned back navigation styled like other expert chrome buttons.
+
+    Widget key: caller-supplied (``expert_detail_back`` or ``_empty`` variant).
+
+    Navigation: ``navigate_to_overview()`` on click.
+    """
+    st.markdown('<div class="expert-detail-back-row"></div>', unsafe_allow_html=True)
+    back_col, _ = st.columns([1.35, 4.65], gap="small")
+    with back_col:
+        st.markdown('<div class="expert-btn-marker expert-btn--back"></div>', unsafe_allow_html=True)
+        if st.button("← Back to Dashboard", key=key, use_container_width=True):
+            navigate_to_overview()
+            st.rerun()
+
+
+def _render_summary_chat_actions(incident_id: int) -> None:
+    """
+    Compact horizontal row — investigation chat and general Q&A side by side.
+
+    Widget: ``expert_detail_new_general_chat_{incident_id}``.
+    """
+    st.markdown('<div class="expert-detail-chat-actions"></div>', unsafe_allow_html=True)
+    open_col, general_col, _spacer = st.columns([1, 1, 1.6], gap="small")
+    with open_col:
+        render_open_chat_button(int(incident_id), use_container_width=True)
+    with general_col:
+        st.markdown('<div class="expert-btn-marker expert-btn--new-chat"></div>', unsafe_allow_html=True)
+        if st.button(
+            "New General Chat",
+            key=f"expert_detail_new_general_chat_{incident_id}",
+            use_container_width=True,
+            help="Start a general analyst Q&A thread (not tied to this incident)",
+        ):
+            start_general_chat()
+            st.rerun()
 
 
 def render_expert_incident_detail():
     """
-    Full incident detail view — driven by st.session_state.expert_incident_id.
+    Full incident detail view — driven by ``st.session_state.expert_incident_id``.
 
-    Shown when expert_view == 'incident_detail' (see expert_router.py).
+    Shown when ``expert_view == 'incident_detail'`` (see ``expert_router.py``).
+
+    db.py: ``get_incident_by_id``, ``is_incident_acknowledged``,
+    ``get_ai_incident_context``, ``get_incident_events``.
+
+    Enriches DB row via ``incident_scenarios.build_active_incident_from_db`` for phase gating.
     """
     incident_id = st.session_state.get("expert_incident_id")
     if not incident_id:
         st.warning("No incident selected.")
-        if st.button("← Back to Dashboard", key="expert_detail_back_empty"):
-            navigate_to_overview()
-            st.rerun()
+        _render_back_to_dashboard(key="expert_detail_back_empty")
         return
 
-    if st.button("← Back to Dashboard", key="expert_detail_back"):
-        navigate_to_overview()
-        st.rerun()
+    _render_back_to_dashboard(key="expert_detail_back")
 
     st.markdown('<div class="expert-incident-detail-root"></div>', unsafe_allow_html=True)
 
@@ -153,39 +231,45 @@ def render_expert_incident_detail():
     with st.container(border=True):
         st.markdown('<div class="standard-panel-card expert-detail-summary-panel"></div>', unsafe_allow_html=True)
         _render_incident_summary(incident)
-        render_acknowledge_button(int(incident_id), incident)
+        _render_summary_chat_actions(int(incident_id))
+        if db.is_incident_acknowledged(int(incident_id)):
+            phase_label = incident_scenarios.get_display_phase(active_incident)
+            if is_terminal_status(incident.get("status", "")):
+                st.caption(f"Incident closed · Status: **{incident.get('status', 'Unknown')}** · Phase: **{phase_label}**")
+            else:
+                st.caption(
+                    f"Response plan active · Status: **{incident.get('status', 'Unknown')}** · "
+                    f"Phase: **{phase_label}**"
+                )
+        elif is_terminal_status(incident.get("status", "")):
+            st.caption(f"Incident closed · Status: **{incident.get('status', 'Unknown')}**")
+        from temporal_state import format_monitoring_remaining, get_monitoring_narrative_hours, is_monitoring_active
 
-        show_start = can_show_start_investigation(incident)
-        show_analyst = can_show_open_analyst_chat(incident)
-        if show_start or show_analyst:
-            col_count = 2 if show_start and show_analyst else 1
-            action_cols = st.columns(col_count)
-            col_index = 0
-            if show_start:
-                with action_cols[col_index]:
-                    render_button_marker(UI_MARKERS["investigation_flow"])
-                    if st.button(
-                        "Start investigation",
-                        key="expert_detail_start_investigation",
-                        type="primary",
-                        use_container_width=True,
-                    ):
-                        open_incident_chat(int(incident_id))
-                        st.session_state.side_panel_open = True
-                        st.rerun()
-                col_index += 1
-            if show_analyst:
-                with action_cols[col_index if show_start else 0]:
-                    render_button_marker(UI_MARKERS["analyst_chat"])
-                    if st.button(
-                        "Open Analyst chat",
-                        key="expert_detail_open_analyst",
-                        use_container_width=True,
-                    ):
-                        if not get_active_incident() or get_active_incident().get("incident_id") != incident_id:
-                            open_incident_chat(int(incident_id))
-                        st.session_state.side_panel_open = True
-                        st.rerun()
+        if is_monitoring_active(active_incident):
+            hours = get_monitoring_narrative_hours(int(incident_id))
+            remaining = format_monitoring_remaining(active_incident)
+            st.info(
+                f"**Monitoring active** — {hours}h enhanced watch on "
+                f"**{active_incident.get('device_name', 'device')}**. "
+                f"Demo unlock in **{remaining}**. You'll get an **Incident update** alert when ready."
+            )
+        elif incident.get("monitor_until"):
+            st.caption(f"Monitoring until: {incident['monitor_until']}")
+
+        if can_show_start_investigation(incident):
+            st.markdown('<div class="expert-detail-investigation-action"></div>', unsafe_allow_html=True)
+            start_col, _ = st.columns([1, 2.2], gap="small")
+            with start_col:
+                render_button_marker(UI_MARKERS["investigation_flow"])
+                if st.button(
+                    "Start investigation",
+                    key="expert_detail_start_investigation",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    open_incident_chat(int(incident_id))
+                    st.session_state.side_panel_open = True
+                    st.rerun()
 
     with st.container(border=True):
         st.markdown('<div class="standard-panel-card expert-ai-recommendations-panel"></div>', unsafe_allow_html=True)
@@ -206,10 +290,3 @@ def render_expert_incident_detail():
     with st.container(border=True):
         st.markdown('<div class="standard-panel-card expert-detail-playbook-panel"></div>', unsafe_allow_html=True)
         render_response_actions(int(incident_id), active_incident)
-
-    with st.container(border=True):
-        st.markdown(
-            '<div class="standard-panel-card standard-history-panel expert-detail-sessions-panel"></div>',
-            unsafe_allow_html=True,
-        )
-        _render_related_sessions(int(incident_id), incident["title"])

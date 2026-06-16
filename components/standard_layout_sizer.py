@@ -1,12 +1,36 @@
 """
 Standard mode layout sizer — injects JavaScript to equalize chat/history scroll heights.
 
-Streamlit does not expose a native way to sync two column scroll regions. This module
-injects a zero-height components.html iframe that runs DOM queries against the parent
-document to set matching heights on .standard-chat-scroll-box and .standard-history-scroll-box.
+Purpose
+-------
+Streamlit does not expose a native way to sync two column scroll regions. This
+module injects a zero-height ``components.html`` iframe whose inline script runs
+in the **parent document** and sets matching heights on
+``.standard-chat-scroll-box`` and ``.standard-history-scroll-box``.
 
-Major development hurdle: Streamlit's DOM structure changes between reruns, so selectors
-must walk stLayoutWrapper → stVerticalBlock chains defensively.
+Note: ``standard_dashboard`` does not currently call ``render_standard_layout_sizer()``;
+the sizer is available for layouts that need JS height sync. CSS grid in
+``standard.css`` handles most alignment today.
+
+Session state
+-------------
+- None (pure client-side DOM manipulation).
+
+Streamlit widget keys
+---------------------
+- None (hidden iframe component).
+
+CSS marker divs targeted by JS
+------------------------------
+- ``standard-mode-root`` — gate: script no-ops if absent.
+- ``standard-history-panel``, ``standard-chat-panel`` — column panel roots.
+- ``standard-history-scroll-box``, ``standard-chat-scroll-box`` — scroll targets.
+- ``standard-chat-input-row`` — bottom anchor for chat scroll height.
+- ``standard-history-incident-spacer`` — optional flex spacer for header alignment.
+
+db.py / ai_service.py
+---------------------
+- **Neither.**
 """
 
 import streamlit.components.v1 as components
@@ -65,6 +89,19 @@ _SIZER_HTML = """
     if (!chatRow) return { chatRow: null, chatRowWrapper: null };
     const chatRowWrapper = chatRow.closest('[data-testid="stLayoutWrapper"]');
     return { chatRow, chatRowWrapper };
+  }
+
+  function findChatInputBlock() {
+    const marker = doc.querySelector(".standard-chat-input-row");
+    if (!marker) return null;
+
+    const form = marker.closest('[data-testid="stForm"]');
+    if (form) return form;
+
+    const layoutWrapper = marker.closest('[data-testid="stLayoutWrapper"]');
+    if (layoutWrapper) return layoutWrapper;
+
+    return marker.closest('[data-testid="stElementContainer"]');
   }
 
   function alignIncidentSpacer(historyPanel, chatPanel, historyScroll, chatScroll) {
@@ -137,19 +174,32 @@ _SIZER_HTML = """
 
     alignIncidentSpacer(historyPanel, chatPanel, historyScroll, chatScroll);
 
-    const panelBottom = Math.min(
-      historyPanel.getBoundingClientRect().bottom,
-      chatPanel.getBoundingClientRect().bottom
-    ) - 6;
-    const historyHeight = Math.floor(panelBottom - historyScroll.getBoundingClientRect().top);
-    const chatHeight = Math.floor(panelBottom - chatScroll.getBoundingClientRect().top);
-    const sharedHeight = Math.max(120, Math.min(historyHeight, chatHeight));
+    const chatInputBlock = findChatInputBlock();
+    const historyBottom = historyPanel.getBoundingClientRect().bottom - 6;
+    const historyHeight = Math.floor(historyBottom - historyScroll.getBoundingClientRect().top);
 
-    [historyScroll, chatScroll].forEach(function (scrollBlock) {
-      scrollBlock.style.setProperty("height", sharedHeight + "px", "important");
-      scrollBlock.style.setProperty("max-height", sharedHeight + "px", "important");
+    const chatBottom = chatInputBlock
+      ? chatInputBlock.getBoundingClientRect().top - 4
+      : historyBottom;
+    const chatHeight = Math.floor(chatBottom - chatScroll.getBoundingClientRect().top);
+
+    const safeHistoryHeight = Math.max(120, historyHeight);
+    const safeChatHeight = Math.max(120, chatHeight);
+
+    [historyScroll].forEach(function (scrollBlock) {
+      scrollBlock.style.setProperty("height", safeHistoryHeight + "px", "important");
+      scrollBlock.style.setProperty("max-height", safeHistoryHeight + "px", "important");
       scrollBlock.style.setProperty("min-height", "0", "important");
-      scrollBlock.style.setProperty("flex", "1 1 " + sharedHeight + "px", "important");
+      scrollBlock.style.setProperty("flex", "1 1 " + safeHistoryHeight + "px", "important");
+      scrollBlock.style.setProperty("overflow-y", "auto", "important");
+      scrollBlock.style.setProperty("overflow-x", "hidden", "important");
+    });
+
+    [chatScroll].forEach(function (scrollBlock) {
+      scrollBlock.style.setProperty("height", safeChatHeight + "px", "important");
+      scrollBlock.style.setProperty("max-height", safeChatHeight + "px", "important");
+      scrollBlock.style.setProperty("min-height", "0", "important");
+      scrollBlock.style.setProperty("flex", "1 1 " + safeChatHeight + "px", "important");
       scrollBlock.style.setProperty("overflow-y", "auto", "important");
       scrollBlock.style.setProperty("overflow-x", "hidden", "important");
     });
@@ -180,5 +230,6 @@ def render_standard_layout_sizer():
     Mount the layout sizer script at the bottom of Standard mode.
 
     height=0 keeps the iframe invisible; script still executes in parent document.
+    Targets CSS markers documented in module docstring.
     """
     components.html(_SIZER_HTML, height=0, scrolling=False)

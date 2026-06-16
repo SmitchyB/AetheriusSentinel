@@ -1,9 +1,39 @@
 """
 Expert action parameter forms — review/edit draft payloads before simulated deploy.
 
-Each action_key maps to a different set of st.text_input / selectbox fields.
-Submit calls execute_incident_action() (detail page) or handle_expert_deploy() (chat).
-No real firewall/EDR API is invoked; results are text rows in incident_actions.
+Purpose
+-------
+Renders Streamlit forms for each defense action in ``action_catalog``. Pre-fills
+fields from ``get_draft_payload()`` based on incident device/IP/MAC. Submit paths:
+- **In chat:** ``handle_expert_deploy()`` (marks draft consumed in messages).
+- **On detail page:** ``execute_incident_action()`` → writes ``incident_actions`` via db.
+
+No real firewall/EDR API is invoked; results are text rows in SQLite.
+
+Navigation / call graph
+-----------------------
+- ``expert_incident_actions.render_response_actions`` — inline form after Configure.
+- ``expert_chat_drawer._render_expert_draft_form`` — inline in message list.
+
+Session state
+-------------
+- Detail page: ``expert_action_form_{incident_id}`` stores selected action key
+  (cleared on successful deploy via ``session_state.pop``).
+
+Streamlit widget keys
+---------------------
+- Form: ``{key_prefix}_expert_form_{action_key}_{draft_message_index}``.
+- Fields are unnamed widgets inside form (Streamlit auto-keys per form scope).
+
+CSS marker divs
+---------------
+- ``render_action_button_marker(action_key)`` before submit button.
+- Detail inline: ``expert-draft-form`` wrapper div.
+
+db.py / ai_service.py
+---------------------
+- **Indirect** via ``execute_incident_action`` / ``handle_expert_deploy`` → db writes.
+- No direct ``ai_service`` calls in this module.
 """
 
 import streamlit as st
@@ -26,9 +56,18 @@ def render_expert_action_approval(
     Render a Streamlit form pre-filled with get_draft_payload() defaults.
 
     Args:
+        action_key: Catalog key (normalized internally).
+        incident: Active incident dict for draft pre-fill.
+        key_prefix: Prefix for form widget key (``expert_chat``, ``expert_detail_{id}``).
         in_chat: True when form is embedded in analyst drawer (compact "Run it" label).
         draft_message_index: Chat message index to mark consumed after deploy.
         incident_id: Required for detail-page deploy path (not used in_chat).
+
+    Widget key:
+        Form ``{key_prefix}_expert_form_{action_key}_{draft_message_index}``.
+
+    Submit:
+        in_chat → ``handle_expert_deploy``; else → ``execute_incident_action`` (db).
     """
     action_key = normalize_action_key(action_key)
     # Pre-fill from action_catalog templates based on incident device/indicator.

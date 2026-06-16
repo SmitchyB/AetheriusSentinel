@@ -1,4 +1,43 @@
-"""Expert incident detail — recommendations, actions taken, and response palette."""
+"""Expert incident detail — recommendations, actions taken, and response palette.
+
+Purpose
+-------
+Sub-panels for the Expert incident detail page: AI recommendations from DB,
+chronological actions taken, expandable response action palette (IR categories),
+and "Open Sentinel Chat" bridge into the analyst drawer.
+
+Used by ``expert_incident_detail.render_expert_incident_detail()`` inside bordered
+containers — not a standalone route.
+
+Session state dependencies
+--------------------------
+- ``expert_action_form_{incident_id}`` — which action's inline form is open.
+- ``side_panel_open`` — set True when opening Sentinel Chat from detail.
+
+Streamlit widget keys
+---------------------
+- ``expert_detail_action_{incident_id}_{action_key}`` — Configure buttons (on_click).
+- ``expert_detail_cancel_{incident_id}_{action_key}`` — cancel inline form.
+- ``expert_open_chat_{incident_id}`` — Open Sentinel Chat primary button.
+- Form keys delegated to ``expert_action_form``.
+
+CSS marker divs
+---------------
+- Section titles: ``standard-section-title standard-section-title--compact``.
+- ``expert-draft-form`` — inline approval form wrapper.
+- ``expert-btn-marker expert-btn--analyst-chat`` — open chat button.
+- Per-action: ``render_action_button_marker(action_key)``.
+
+db.py
+-----
+- ``get_recommendations_for_incident(incident_id)``
+- ``get_incident_action_keys_completed(incident_id)`` — playbook checkmarks.
+- ``get_incident_actions_list(incident_id)`` — actions taken timeline.
+
+ai_service.py
+-------------
+- **Not used** directly; recommendations may be seeded or generated elsewhere.
+"""
 
 from __future__ import annotations
 
@@ -11,15 +50,16 @@ from action_catalog import ACTION_CATEGORIES, ACTIONS, get_action, normalize_act
 from components.expert_action_form import render_expert_action_approval
 from components.styled_buttons import render_action_button_marker, render_button_marker
 from incident_scenarios import (
-    acknowledge_incident_flow,
     can_execute_action,
-    can_show_acknowledge,
     format_playbook_complete_message,
+    get_display_phase,
     get_next_executable_recommended_step,
     get_playbook_phase,
     get_recommended_action_keys,
+    is_generating_playbook,
     is_playbook_complete,
     is_terminal_status,
+    open_incident_chat,
 )
 
 
@@ -36,8 +76,14 @@ def render_ai_recommendations(incident_id: int):
     Show recommendations rows from DB — playbook, authority notices, general advice.
 
     Playbook section lists recommended action keys with ✓/○ based on incident_actions.
+
+    db.py: ``get_recommendations_for_incident``, ``get_incident_action_keys_completed``.
     """
     _section_title("AI Recommendations")
+    if is_generating_playbook(incident_id):
+        st.info("Sentinel is building your response plan…")
+        return
+
     try:
         recommendations = db.get_recommendations_for_incident(incident_id)
     except Exception as error:
@@ -46,7 +92,7 @@ def render_ai_recommendations(incident_id: int):
         return
 
     if not recommendations:
-        st.info("No recommendations yet. Acknowledge the alert to generate a playbook.")
+        st.info("No recommendations yet. Run a scan or open this alert in Sentinel Chat.")
         return
 
     completed = db.get_incident_action_keys_completed(incident_id)
@@ -78,7 +124,11 @@ def render_ai_recommendations(incident_id: int):
 
 
 def render_actions_taken(incident_id: int):
-    """Chronological list of incident_actions rows (auto + manual steps)."""
+    """
+    Chronological list of incident_actions rows (auto + manual steps).
+
+    db.py: ``get_incident_actions_list(incident_id)``.
+    """
     _section_title("Actions Taken")
     try:
         actions = db.get_incident_actions_list(incident_id)
@@ -106,6 +156,7 @@ def _select_detail_action(incident_id: int, action_key: str) -> None:
 
 
 def _clear_detail_action(incident_id: int) -> None:
+    """Clear inline form selection for this incident."""
     st.session_state.pop(f"expert_action_form_{incident_id}", None)
 
 
@@ -133,18 +184,42 @@ def render_response_actions(incident_id: int, incident: dict):
     """
     Expandable action palette grouped by IR category (containment, eradication, etc.).
 
-    Buttons respect get_playbook_phase() gating via can_execute_action().
+    Buttons respect ``get_playbook_phase()`` gating via ``can_execute_action()``.
     Simulated deploy writes to incident_actions — no live network API.
+
+    Session: ``expert_action_form_{incident_id}`` for selected configure target.
+
+    Widget keys: ``expert_detail_action_*``, ``expert_detail_cancel_*``.
+
+    db.py: ``get_incident_action_keys_completed`` for completed badges.
     """
     _section_title("Response Actions")
     phase = get_playbook_phase(incident)
     recommended = set(get_recommended_action_keys(incident_id))
     completed = db.get_incident_action_keys_completed(incident_id)
 
-    st.caption(f"Current phase: **{phase.replace('_', ' ').title()}**")
+    st.caption(f"Current phase: **{get_display_phase(incident)}**")
+
+    from temporal_state import format_monitoring_remaining, get_monitoring_narrative_hours, is_monitoring_active
+
+    if is_monitoring_active(incident):
+        hours = get_monitoring_narrative_hours(incident_id)
+        remaining = format_monitoring_remaining(incident)
+        st.info(
+            f"Monitoring: **{hours}h** watch window · demo unlock **{remaining}** · "
+            "response actions unlock after the update alert."
+        )
+
+    if is_generating_playbook(incident_id):
+        st.info("Sentinel is building your response plan…")
+        return
 
     if phase == "awaiting_ack":
-        st.info("Acknowledge the alert to unlock containment and resolution actions.")
+        st.info("Open **Sentinel Chat** and click **Get started** to unlock response actions.")
+        return
+
+    if phase == "monitoring" or is_monitoring_active(incident):
+        st.info("Response actions are paused during the monitoring window. Check **Alerts** for updates.")
         return
 
     if phase == "closed" and not is_terminal_status(incident.get("status", "")):
@@ -241,27 +316,21 @@ def render_response_actions(incident_id: int, incident: dict):
                 st.caption("No actions available in this category right now.")
 
 
-def render_acknowledge_button(incident_id: int, incident: dict):
+def render_open_chat_button(incident_id: int, *, use_container_width: bool = True):
     """
-    Primary ack button — triggers acknowledge_incident_flow() and playbook insert.
+    Open Sentinel Chat with the incident summary and get-started gate.
 
-    Hidden when already acknowledged or incident is in terminal status.
+    Widget key: ``expert_open_chat_{incident_id}``.
+
+    Sets ``side_panel_open=True`` and calls ``open_incident_chat``.
     """
-    if not can_show_acknowledge(incident_id, incident):
-        if db.is_incident_acknowledged(incident_id):
-            st.caption(f"Alert acknowledged · Status: **{incident.get('status', 'Unknown')}**")
-        elif is_terminal_status(incident.get("status", "")):
-            st.caption(f"Incident closed · Status: **{incident.get('status', 'Unknown')}**")
-        if incident.get("monitor_until"):
-            st.caption(f"Monitoring until: {incident['monitor_until']}")
-        return
-
-    render_button_marker("standard-btn--action-containment")
+    st.markdown('<div class="expert-btn-marker expert-btn--analyst-chat"></div>', unsafe_allow_html=True)
     if st.button(
-        "Acknowledge alert",
-        key=f"expert_ack_{incident_id}",
+        "Open Sentinel Chat",
+        key=f"expert_open_chat_{incident_id}",
         type="primary",
-        use_container_width=True,
+        use_container_width=use_container_width,
     ):
-        acknowledge_incident_flow(incident_id)
+        open_incident_chat(int(incident_id))
+        st.session_state.side_panel_open = True
         st.rerun()

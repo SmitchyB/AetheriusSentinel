@@ -18,7 +18,11 @@
     --sentinel-section-title-size: 1.55rem;
     --expert-section-title-size: 2.1rem;
     --expert-kpi-title-size: 1.2rem;
-    --panel-radius: 10px;
+    --expert-drawer-width: 600px;
+    --expert-drawer-history-width: 11.5rem;
+    --expert-drawer-history-strip-w: 2.1rem;
+    --expert-drawer-chrome-h: 14rem;
+    --expert-drawer-chrome-h-actions: 27rem;
     --panel-shadow:
         0 6px 20px rgba(0, 0, 0, 0.45),
         0 0 14px var(--panel-glow-blue),
@@ -44,6 +48,10 @@
 }
 
 .standard-btn-marker {
+    display: none;
+}
+
+.expert-btn-marker {
     display: none;
 }
 
@@ -245,9 +253,47 @@ section.main .block-container h1:not(.sentinel-app-title) {
 }
 
 /* Incident detail themed buttons */
-[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--back) + [data-testid="stElementContainer"] button,
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--back) + [data-testid="stElementContainer"] button {
+    min-height: 2.65rem !important;
+    padding: 0.45rem 1rem !important;
+    border: 2px solid transparent !important;
+    border-radius: 8px !important;
+    background:
+        var(--panel-inner-bg) padding-box,
+        var(--sentinel-gradient) border-box !important;
+    color: var(--sentinel-text) !important;
+    font-family: var(--sentinel-font-body) !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    box-shadow: var(--panel-shadow) !important;
+    transition: box-shadow 0.15s ease, filter 0.15s ease !important;
+}
+
 [data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button,
-[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button[kind="secondary"] {
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button[kind="primary"],
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button[kind="secondary"],
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button[data-testid="stBaseButton-primary"] {
+    min-height: 2.65rem !important;
+    padding: 0.45rem 1rem !important;
+    border: 2px solid transparent !important;
+    border-radius: 8px !important;
+    background:
+        var(--panel-inner-bg) padding-box,
+        var(--sentinel-purple-accent) border-box !important;
+    color: var(--sentinel-text) !important;
+    font-family: var(--sentinel-font-body) !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    box-shadow: var(--btn-purple-shadow) !important;
+    transition: box-shadow 0.15s ease, filter 0.15s ease !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button,
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button[kind="primary"],
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stDialog"] [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button,
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stDialog"] [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button[kind="secondary"] {
     min-height: 2.65rem !important;
     padding: 0.45rem 1rem !important;
     border: 2px solid transparent !important;
@@ -283,8 +329,24 @@ section.main .block-container h1:not(.sentinel-app-title) {
     transition: box-shadow 0.15s ease, filter 0.15s ease !important;
 }
 
-[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--back) + [data-testid="stElementContainer"] button:hover,
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--back) + [data-testid="stElementContainer"] button:hover {
+    filter: brightness(1.06) !important;
+    box-shadow:
+        0 6px 22px rgba(0, 0, 0, 0.48),
+        0 0 18px rgba(0, 163, 255, 0.55),
+        0 0 32px rgba(140, 0, 255, 0.38) !important;
+}
+
 [data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button:hover {
+    filter: brightness(1.06) !important;
+    box-shadow:
+        0 6px 22px rgba(0, 0, 0, 0.48),
+        0 0 18px rgba(140, 0, 255, 0.62),
+        0 0 32px rgba(140, 0, 255, 0.34) !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button:hover,
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stDialog"] [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button:hover {
     filter: brightness(1.06) !important;
     box-shadow:
         0 6px 22px rgba(0, 0, 0, 0.48),
@@ -302,13 +364,52 @@ section.main .block-container h1:not(.sentinel-app-title) {
 
 [data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--back) + [data-testid="stElementContainer"] button p,
 [data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--investigation) + [data-testid="stElementContainer"] button p,
-[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button p {
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button p,
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button p,
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stDialog"] [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button p {
     color: var(--sentinel-text) !important;
     font-weight: 600 !important;
 }
 
 [data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stVerticalBlock"]:has(.expert-detail-back-row) {
     margin-bottom: 0.65rem;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stVerticalBlock"]:has(.expert-detail-back-row) > [data-testid="stHorizontalBlock"] {
+    max-width: 15rem;
+    width: 100%;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stVerticalBlock"]:has(.expert-detail-chat-actions) {
+    margin-top: 0.35rem;
+    margin-bottom: 0.35rem;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stVerticalBlock"]:has(.expert-detail-chat-actions) > [data-testid="stHorizontalBlock"] {
+    max-width: 28rem;
+    width: 100%;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stVerticalBlock"]:has(.expert-detail-chat-actions) [data-testid="stElementContainer"]:has(.expert-btn--analyst-chat) + [data-testid="stElementContainer"] button,
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stVerticalBlock"]:has(.expert-detail-chat-actions) [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button {
+    min-height: 2.35rem !important;
+    padding: 0.38rem 0.75rem !important;
+    font-size: 0.82rem !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-actions-row) {
+    margin: 0 0 0.55rem !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-actions-row) > [data-testid="stHorizontalBlock"] {
+    justify-content: flex-end !important;
+    gap: 0.5rem !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.expert-mode-root) [data-testid="stDialog"] [data-testid="stElementContainer"]:has(.expert-btn--new-chat) + [data-testid="stElementContainer"] button {
+    min-height: 2.35rem !important;
+    padding: 0.38rem 0.75rem !important;
+    font-size: 0.82rem !important;
 }
 
 /* DataFrames inside expert panels */
@@ -410,36 +511,185 @@ div[role="dialog"][aria-modal="true"] {
     right: 0 !important;
     left: auto !important;
     bottom: 0 !important;
-    width: min(400px, 92vw) !important;
-    max-width: 400px !important;
+    width: min(var(--expert-drawer-width), 94vw) !important;
+    max-width: var(--expert-drawer-width) !important;
     height: 100vh !important;
     max-height: 100vh !important;
     margin: 0 !important;
-    padding: 1rem 1rem 5.5rem !important;
+    padding: 1rem !important;
     border-radius: 0 !important;
-    border-left: 1px solid #8C00FF !important;
-    background: #111827 !important;
-    box-shadow: -10px 0 28px rgba(0, 163, 255, 0.18) !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    border-left: 2px solid rgba(0, 163, 255, 0.35) !important;
+    background: linear-gradient(180deg, #050b1a 0%, #010e37 52%, #030712 100%) !important;
+    box-shadow:
+        inset 2px 0 0 rgba(140, 0, 255, 0.28),
+        inset 0 0 48px rgba(0, 163, 255, 0.05),
+        inset 0 0 72px rgba(140, 0, 255, 0.04),
+        -12px 0 36px rgba(0, 163, 255, 0.22),
+        -6px 0 56px rgba(140, 0, 255, 0.18) !important;
+    overflow: hidden !important;
     animation: slideInDrawer 0.22s ease-out !important;
     transform: none !important;
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
+    color: var(--sentinel-text) !important;
 }
 
 [data-testid="stDialog"] > div:first-child,
 div[role="dialog"] > div:first-child {
-    border-bottom: 1px solid rgba(140, 0, 255, 0.35);
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
+    flex-shrink: 0 !important;
+    border-bottom: 1px solid rgba(0, 163, 255, 0.22) !important;
+    background: linear-gradient(90deg, rgba(0, 163, 255, 0.1) 0%, rgba(140, 0, 255, 0.08) 100%) !important;
+    margin-bottom: 0.75rem !important;
+    padding: 0.15rem 0 0.65rem !important;
+    border-radius: 0 !important;
+}
+
+[data-testid="stDialog"] > div:not(:first-child),
+div[role="dialog"] > div:not(:first-child) {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+[data-testid="stDialog"] > div:not(:first-child) > [data-testid="stVerticalBlockBorderWrapper"],
+div[role="dialog"] > div:not(:first-child) > [data-testid="stVerticalBlockBorderWrapper"] {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.35rem !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main-body),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main-body) {
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-wing),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-wing),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) {
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    flex-shrink: 0 !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-actions-row),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-detail-header),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has([data-testid="stCaptionContainer"]),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has([data-testid="stAlert"]),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.standard-chat-action-bar),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has([data-testid="stChatInput"]),
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-actions-row),
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-detail-header),
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has([data-testid="stCaptionContainer"]),
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has([data-testid="stAlert"]),
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.standard-chat-action-bar),
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has([data-testid="stChatInput"]),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:not(:has(.expert-drawer-history-wing-panel)),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:not(:has(.expert-drawer-main-body)) > [data-testid="stLayoutWrapper"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-actions-row),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-detail-header),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has([data-testid="stCaptionContainer"]),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has([data-testid="stAlert"]),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.standard-chat-action-bar),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has([data-testid="stChatInput"]),
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-actions-row),
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-detail-header),
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has([data-testid="stCaptionContainer"]),
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has([data-testid="stAlert"]),
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.standard-chat-action-bar),
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has([data-testid="stChatInput"]),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:not(:has(.expert-drawer-history-wing-panel)),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:not(:has(.expert-drawer-main-body)) > [data-testid="stLayoutWrapper"] {
+    flex-shrink: 0 !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"],
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"],
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"],
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"] {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - var(--expert-drawer-chrome-h)) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root):has(.standard-chat-action-bar) > [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"],
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root):has(.standard-chat-action-bar) > [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"],
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root):has(.standard-chat-action-bar) [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"],
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root):has(.standard-chat-action-bar) [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root):has(.standard-chat-action-bar) > [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root):has(.standard-chat-action-bar) > [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root):has(.standard-chat-action-bar) [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root):has(.standard-chat-action-bar) [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"] {
+    max-height: calc(100vh - var(--expert-drawer-chrome-h-actions)) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"] [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stDialog"] [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"] [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"] [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"] [data-testid="stVerticalBlockBorderWrapper"],
+div[role="dialog"] [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"] [data-testid="stVerticalBlockBorderWrapper"],
+div[role="dialog"] [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"] [data-testid="stVerticalBlockBorderWrapper"],
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stLayoutWrapper"] [data-testid="stVerticalBlockBorderWrapper"],
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has(.expert-drawer-chat-panel) + [data-testid="stElementContainer"] [data-testid="stVerticalBlockBorderWrapper"] {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has([data-testid="stChatInput"]),
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has([data-testid="stChatInput"]),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has([data-testid="stChatInput"]),
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stElementContainer"]:has([data-testid="stChatInput"]) {
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
 }
 
 [data-testid="stDialog"] h2,
 div[role="dialog"] h2 {
-    font-size: 1.1rem !important;
-    color: #e2e8f0 !important;
+    font-family: "Orbitron", sans-serif !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    background-image: var(--sentinel-gradient) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
 }
 
 [data-testid="stDialog"] .drawer-quick-actions,
@@ -459,12 +709,13 @@ div[role="dialog"] [data-testid="stVerticalBlockBorderWrapper"] {
     flex-direction: column !important;
     flex: 1 1 auto;
     min-height: 0;
-    overflow: visible !important;
+    overflow: hidden !important;
 }
 
 [data-testid="stModalOverlay"],
 [data-testid="stDialogOverlay"] {
-    background: rgba(3, 7, 18, 0.45) !important;
+    background: rgba(1, 6, 24, 0.62) !important;
+    backdrop-filter: blur(2px) !important;
 }
 
 @keyframes slideInDrawer {
@@ -476,6 +727,369 @@ div[role="dialog"] [data-testid="stVerticalBlockBorderWrapper"] {
         transform: translateX(0);
         opacity: 1;
     }
+}
+
+/* Expert drawer — side history wing (fixed left of main popout) */
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-wing),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-wing),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) {
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    flex-shrink: 0 !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    right: var(--expert-drawer-width) !important;
+    width: var(--expert-drawer-history-strip-w) !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    z-index: 1000002 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: linear-gradient(180deg, rgba(5, 11, 26, 0.98) 0%, rgba(20, 8, 48, 0.96) 100%) !important;
+    border-left: 1px solid rgba(140, 0, 255, 0.35) !important;
+    border-right: 1px solid rgba(140, 0, 255, 0.45) !important;
+    box-shadow:
+        inset 0 0 20px rgba(140, 0, 255, 0.08),
+        -4px 0 16px rgba(140, 0, 255, 0.14) !important;
+    box-sizing: border-box !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) [data-testid="stButton"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) [data-testid="stButton"] {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) button,
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) button {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    padding: 0.5rem 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #d8b4fe !important;
+    font-family: var(--sentinel-font-body) !important;
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    box-shadow: none !important;
+    transition: color 0.15s ease, background 0.15s ease !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) button:hover,
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) button:hover {
+    background: rgba(140, 0, 255, 0.18) !important;
+    color: #ffffff !important;
+    filter: none !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) button p,
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-history-strip-marker) + [data-testid="stElementContainer"]:has([data-testid="stButton"]) button p {
+    color: inherit !important;
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-chat-panel)),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-chat-panel)) {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    right: calc(var(--expert-drawer-width) + var(--expert-drawer-history-strip-w)) !important;
+    width: min(var(--expert-drawer-history-width), 34vw) !important;
+    max-width: var(--expert-drawer-history-width) !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    z-index: 1000001 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+    border: 2px solid transparent !important;
+    border-radius: 0 !important;
+    background:
+        linear-gradient(rgba(5, 11, 26, 0.97), rgba(20, 8, 48, 0.95)) padding-box,
+        var(--sentinel-purple-accent) border-box !important;
+    box-shadow:
+        inset 0 0 36px rgba(140, 0, 255, 0.08),
+        -10px 0 30px rgba(140, 0, 255, 0.22),
+        -4px 0 48px rgba(140, 0, 255, 0.14) !important;
+    animation: slideInHistoryWing 0.22s ease-out !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-chat-panel)) > [data-testid="stVerticalBlock"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-chat-panel)) > [data-testid="stVerticalBlock"] {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.35rem !important;
+    padding: 0.8rem 0.55rem 0.75rem !important;
+    box-sizing: border-box !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main) ~ [data-testid="stElementContainer"],
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main) ~ [data-testid="stLayoutWrapper"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main) ~ [data-testid="stElementContainer"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main) ~ [data-testid="stLayoutWrapper"] {
+    flex-shrink: 0 !important;
+}
+
+/* Main drawer body — flex column; chat scrolls inside */
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main) + [data-testid="stLayoutWrapper"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stElementContainer"]:has(.expert-drawer-main) + [data-testid="stLayoutWrapper"] {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 5.5rem) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) > [data-testid="stVerticalBlock"],
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) > [data-testid="stVerticalBlock"] {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.35rem !important;
+}
+
+/* Keep chat layout wrappers in-flow (undo history-wing fixed positioning bleed) */
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-chat-panel),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has([data-testid="stChatMessage"]),
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has([data-testid="stChatInput"]),
+[data-testid="stDialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stLayoutWrapper"]:has([data-testid="stChatMessage"]),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-chat-panel),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has([data-testid="stChatMessage"]),
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has([data-testid="stChatInput"]),
+div[role="dialog"] [data-testid="stLayoutWrapper"]:has(.expert-drawer-main-body) [data-testid="stLayoutWrapper"]:has([data-testid="stChatMessage"]) {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: auto !important;
+    z-index: auto !important;
+    animation: none !important;
+}
+
+[data-testid="stDialog"] .expert-drawer-history-title,
+div[role="dialog"] .expert-drawer-history-title {
+    font-size: 0.95rem !important;
+    margin: 0 0 0.35rem 0 !important;
+    white-space: nowrap !important;
+}
+
+@keyframes slideInHistoryWing {
+    from {
+        transform: translateX(1.25rem);
+        opacity: 0.55;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+[data-testid="stDialog"] .expert-drawer-history-scroll,
+div[role="dialog"] .expert-drawer-history-scroll {
+    display: none;
+}
+
+/* History wing session tiles only — direct child of drawer root (not dialog shell) */
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) {
+    margin-bottom: 0.35rem !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button,
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button[kind="secondary"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button {
+    min-height: 2.35rem !important;
+    padding: 0.38rem 0.55rem !important;
+    border-radius: 8px !important;
+    background: rgba(4, 12, 32, 0.55) !important;
+    border: 1px solid rgba(0, 163, 255, 0.14) !important;
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    color: var(--sentinel-text) !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button[kind="primary"],
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button[kind="primary"] {
+    background: rgba(20, 10, 48, 0.75) !important;
+    border-color: rgba(140, 0, 255, 0.45) !important;
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.28),
+        0 0 14px rgba(140, 0, 255, 0.28),
+        inset 0 1px 0 rgba(140, 0, 255, 0.12) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button:hover,
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button:hover {
+    border-color: rgba(0, 163, 255, 0.35) !important;
+    background: rgba(8, 22, 52, 0.78) !important;
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.25),
+        0 0 10px rgba(0, 163, 255, 0.18) !important;
+    filter: none !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button[kind="primary"]:hover,
+div[role="dialog"] [data-testid="stVerticalBlock"]:has(.expert-drawer-root) > [data-testid="stLayoutWrapper"]:has(.expert-drawer-history-wing-panel):not(:has(.expert-drawer-main-body)):not(:has(.expert-drawer-chat-panel)):not(:has(.standard-chat-action-bar)) [data-testid="stElementContainer"]:has([data-testid="stButton"]) button[kind="primary"]:hover {
+    border-color: rgba(140, 0, 255, 0.6) !important;
+    background: rgba(24, 12, 56, 0.82) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stChatMessage"]),
+div[role="dialog"] [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stChatMessage"]) {
+    border: 2px solid transparent !important;
+    border-radius: 10px !important;
+    background:
+        linear-gradient(rgba(5, 11, 26, 0.82), rgba(3, 7, 18, 0.9)) padding-box,
+        var(--sentinel-gradient) border-box !important;
+    box-shadow:
+        inset 0 0 28px rgba(0, 163, 255, 0.05),
+        0 0 16px rgba(0, 163, 255, 0.1),
+        0 0 24px rgba(140, 0, 255, 0.08) !important;
+    padding: 0.35rem 0.45rem !important;
+    margin-bottom: 0.35rem !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+}
+
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stChatMessage"]) > [data-testid="stVerticalBlock"],
+[data-testid="stDialog"] [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stChatMessage"]) [data-testid="stVerticalBlock"],
+div[role="dialog"] [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stChatMessage"]) > [data-testid="stVerticalBlock"],
+div[role="dialog"] [data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stChatMessage"]) [data-testid="stVerticalBlock"] {
+    flex: 1 1 auto !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+[data-testid="stDialog"] [data-testid="stChatMessage"],
+div[role="dialog"] [data-testid="stChatMessage"] {
+    background: rgba(4, 12, 32, 0.55) !important;
+    border: 1px solid rgba(0, 163, 255, 0.14) !important;
+    border-radius: 8px !important;
+}
+
+[data-testid="stDialog"] [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarIcon-user"]),
+div[role="dialog"] [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarIcon-user"]) {
+    border-color: rgba(0, 163, 255, 0.28) !important;
+    box-shadow: 0 0 10px rgba(0, 163, 255, 0.08) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarIcon-assistant"]),
+div[role="dialog"] [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarIcon-assistant"]) {
+    border-color: rgba(140, 0, 255, 0.24) !important;
+    box-shadow: 0 0 10px rgba(140, 0, 255, 0.08) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stChatMessage"] p,
+[data-testid="stDialog"] [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p,
+div[role="dialog"] [data-testid="stChatMessage"] p,
+div[role="dialog"] [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
+    color: var(--sentinel-text) !important;
+    font-family: var(--sentinel-font-body) !important;
+    font-size: var(--sentinel-body-size) !important;
+    line-height: var(--sentinel-body-line) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stCaptionContainer"],
+div[role="dialog"] [data-testid="stCaptionContainer"] {
+    color: var(--sentinel-text-muted) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stAlert"],
+div[role="dialog"] [data-testid="stAlert"] {
+    border-radius: 8px !important;
+    border: 1px solid rgba(0, 163, 255, 0.28) !important;
+    background: rgba(5, 11, 26, 0.88) !important;
+    box-shadow: 0 0 12px rgba(0, 163, 255, 0.1) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stChatInput"] > div,
+div[role="dialog"] [data-testid="stChatInput"] > div {
+    border: 2px solid transparent !important;
+    border-radius: 10px !important;
+    background:
+        linear-gradient(rgba(5, 11, 26, 0.95), rgba(5, 11, 26, 0.95)) padding-box,
+        var(--sentinel-gradient) border-box !important;
+    box-shadow: 0 0 14px rgba(0, 163, 255, 0.12), 0 0 22px rgba(140, 0, 255, 0.08) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stChatInput"] textarea,
+div[role="dialog"] [data-testid="stChatInput"] textarea {
+    color: var(--sentinel-text) !important;
+    background: transparent !important;
+    font-family: var(--sentinel-font-body) !important;
+    font-size: var(--sentinel-body-size) !important;
+}
+
+[data-testid="stDialog"] [data-testid="stChatInput"] textarea::placeholder,
+div[role="dialog"] [data-testid="stChatInput"] textarea::placeholder {
+    color: rgba(242, 240, 235, 0.45) !important;
+}
+
+[data-testid="stDialog"] .expert-detail-title,
+div[role="dialog"] .expert-detail-title {
+    font-size: 1rem !important;
+}
+
+/* Drawer sticky action bar — keep labels readable in the wider panel */
+[data-testid="stDialog"] [data-testid="stElementContainer"]:has(.standard-chat-action-bar) ~ [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button,
+div[role="dialog"] [data-testid="stElementContainer"]:has(.standard-chat-action-bar) ~ [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button {
+    min-height: 2.4rem !important;
+    padding: 0.4rem 0.55rem !important;
+}
+
+[data-testid="stDialog"] [data-testid="stElementContainer"]:has(.standard-chat-action-bar) ~ [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button p,
+div[role="dialog"] [data-testid="stElementContainer"]:has(.standard-chat-action-bar) ~ [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button p {
+    font-size: 0.8rem !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
 }
 
 /* Expert drafted-payload form inside playbook */
@@ -666,10 +1280,10 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.expert-draft-form) [data-te
     }
 }
 
-/* Notification panel */
-div[data-testid="stVerticalBlock"]:has(.standard-notifications-panel),
-div[data-testid="stVerticalBlock"]:has(.expert-notifications-panel) {
-    margin-bottom: 0.75rem;
+/* Notification panel — fixed overlay (see app.css); no inline layout space */
+div[data-testid="stVerticalBlock"]:has(.sentinel-notifications-overlay) {
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* Incidents row — directly under security events + hardware */

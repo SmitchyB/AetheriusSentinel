@@ -1,11 +1,50 @@
 """
 Aetherius Sentinel — Streamlit application entry point.
 
-This file is intentionally thin: it wires together the header toolbar, mode-specific
-CSS, and either Standard mode (homeowner UI) or Expert mode (SOC dashboard).
-All database queries live in db.py; UI panels live under components/.
+Purpose
+-------
+Thin orchestration layer: page config, global CSS, session bootstrap, header
+toolbar, mode-specific theming, notifications overlay, and body router to either
+Standard (homeowner) or Expert (SOC) dashboards. **No business SQL here** — all
+queries live in ``db.py``; UI panels live under ``components/``.
 
-Run with: streamlit run app.py
+Run with: ``streamlit run app.py``
+
+Application flow (each rerun)
+-----------------------------
+1. ``load_app_css()`` — inject ``Assets/app.css``.
+2. ``init_session_state()`` — chat messages, toggles, panel flags (``sentinel_actions``).
+3. ``init_incident_state()`` — playbook phase, incident mirror, scan rotation.
+4. ``sync_all_monitoring_expirations()`` — demo temporal unlocks.
+5. Header row: title + health badge + expert toggle + auto defense + alerts bell
+   (+ Expert hamburger for analyst drawer).
+6. Mode root marker + ``load_expert_css()`` or ``load_standard_css()``.
+7. ``render_expert_notifications_panel()`` if bell opened.
+8. Body: ``render_expert_mode()`` + drawer OR ``render_standard_mode()``.
+
+Session state keys (app-level touchpoints)
+------------------------------------------
+- ``expert_mode`` — from toggle; drives entire layout branch.
+- ``side_panel_open``, ``expert_drawer_history_expanded`` — Expert analyst drawer.
+- ``notifications_open`` — alerts dropdown visibility.
+- ``active_session_id`` — hamburger opens drawer with/without history expanded.
+
+Streamlit widget keys (defined in app.py)
+-----------------------------------------
+- ``expert_analyst_chat_toggle`` — ☰ hamburger (Expert header only).
+
+CSS marker divs (defined in app.py)
+-----------------------------------
+- ``sentinel-header-toolbar`` — empty shell; CSS positions header widgets.
+- ``standard-btn-marker sentinel-btn--header-analyst`` — hamburger anchor.
+- ``expert-mode-root`` / ``standard-mode-root`` — theme scoping for child CSS files.
+
+db.py / ai_service.py
+---------------------
+- **Not called directly** from ``app.py``.
+- Health badge → ``db.get_system_status()`` via ``header_health_badge``.
+- Chat/AI → ``handle_chat_prompt`` in components → ``ai_service`` indirectly.
+- Hot-reload list includes both modules for development convenience.
 """
 
 import importlib
@@ -19,14 +58,16 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 # Core modules (business logic + DB layer).
 import action_catalog
+import ai_service
 import chat_sessions
 import db
 import incident_scenarios
 import sentinel_actions
+import temporal_state
 
 # Hot-reload during development so edits to these modules apply without restarting Streamlit.
 # action_catalog must reload before incident_scenarios (it imports new symbols from the catalog).
-for _module in (action_catalog, db, incident_scenarios, chat_sessions, sentinel_actions):
+for _module in (action_catalog, db, temporal_state, ai_service, incident_scenarios, chat_sessions, sentinel_actions):
     importlib.reload(_module)
 
 import streamlit as st
@@ -34,10 +75,11 @@ import streamlit as st
 # UI component modules — each renders one panel or feature area.
 import components.chat_history as chat_history
 import components.expert_charts as expert_charts
-import components.expert_chat_drawer as expert_chat_drawer
 import components.expert_dashboard as expert_dashboard
+import components.expert_incident_actions as expert_incident_actions
 import components.expert_incident_detail as expert_incident_detail
 import components.expert_incidents_list as expert_incidents_list
+import components.incidents_list as incidents_list
 import components.expert_navigation as expert_navigation
 import components.expert_notifications as expert_notifications
 import components.expert_overview as expert_overview
@@ -48,16 +90,18 @@ import components.auto_defense_toggle as auto_defense_toggle
 import components.expert_mode_toggle as expert_mode_toggle
 import components.scans as scans
 import components.sentinel_panel as sentinel_panel
+import components.expert_chat_drawer as expert_chat_drawer
 import components.standard_dashboard as standard_dashboard
 import components.standard_layout_sizer as standard_layout_sizer
 
 for _module in (
     chat_history,
     expert_charts,
-    expert_chat_drawer,
     expert_dashboard,
+    expert_incident_actions,
     expert_incident_detail,
     expert_incidents_list,
+    incidents_list,
     expert_navigation,
     expert_notifications,
     expert_overview,
@@ -68,6 +112,7 @@ for _module in (
     expert_mode_toggle,
     scans,
     sentinel_panel,
+    expert_chat_drawer,
     standard_layout_sizer,
     standard_dashboard,
 ):
@@ -92,7 +137,13 @@ st.set_page_config(page_title="Aetherius Sentinel", layout="wide")
 
 
 def load_app_css():
-    """Inject global stylesheet shared by both Standard and Expert modes."""
+    """
+    Inject global stylesheet shared by both Standard and Expert modes.
+
+    Tries capital-A ``Assets/app.css`` first (Windows), then lowercase ``assets/``.
+  Scoped rules apply app-wide; mode-specific rules use ``.expert-mode-root`` /
+    ``.standard-mode-root`` descendants from child CSS loaders.
+    """
     # Try capital-A Assets first (Windows), then lowercase assets.
     for css_path in (Path("Assets/app.css"), Path("assets/app.css")):
         if css_path.exists():
@@ -105,6 +156,7 @@ load_app_css()
 
 init_session_state()   # Chat messages, expert toggles, panel open flags
 init_incident_state()  # Playbook phase, active incident mirror, scan rotation
+incident_scenarios.sync_all_monitoring_expirations()
 
 # --- Header row: title (left) and toolbar controls (right) ---
 header_left, header_right = st.columns([0.22, 0.78], vertical_alignment="center")
@@ -145,12 +197,21 @@ with header_right:
                 '<div class="standard-btn-marker sentinel-btn--header-analyst"></div>',
                 unsafe_allow_html=True,
             )
+            # Widget key expert_analyst_chat_toggle — toggles side_panel_open / history wing.
             if st.button(
                 "☰",
                 key="expert_analyst_chat_toggle",
                 help="Open Sentinel Analyst panel",
             ):
-                st.session_state.side_panel_open = not st.session_state.side_panel_open
+                if st.session_state.get("side_panel_open"):
+                    st.session_state.side_panel_open = False
+                    st.session_state.expert_drawer_history_expanded = False
+                elif st.session_state.get("active_session_id"):
+                    st.session_state.side_panel_open = True
+                    st.session_state.expert_drawer_history_expanded = False
+                else:
+                    st.session_state.side_panel_open = True
+                    st.session_state.expert_drawer_history_expanded = True
                 st.rerun()
 
 # --- Mode-specific root marker + CSS (drives theming via injected selectors) ---

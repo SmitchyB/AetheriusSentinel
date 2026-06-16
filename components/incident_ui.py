@@ -1,8 +1,32 @@
 """
 Legacy incident alert banners — optional pipeline-style incident cards.
 
-Used when embedding incident_ui in older layouts; Standard/Expert modes use
-tables and detail views instead.
+Purpose
+-------
+Renders severity-colored alert banners for active or open incidents. Used when
+embedding ``incident_ui`` in older layouts; **Standard/Expert main flows** use
+the incidents table and detail views instead. Not called from current ``app.py``.
+
+Session state dependencies
+--------------------------
+- Prefers ``incident_scenarios.get_active_incident()`` (live chat session mirror).
+- Falls back to ``db.get_open_incidents()`` when no active session.
+
+Streamlit widget keys
+---------------------
+- None (uses ``st.error`` / ``st.warning`` / ``st.info`` native alerts).
+
+CSS marker divs
+---------------
+- ``incident-alert-card`` — hook before each banner (``pipeline.css`` if loaded).
+
+db.py
+-----
+- ``DB_PATH.exists()``, ``get_open_incidents()`` — fallback list when no session.
+
+ai_service.py
+-------------
+- **Not used.**
 """
 
 from pathlib import Path
@@ -14,7 +38,11 @@ import incident_scenarios
 
 
 def load_pipeline_css():
-    """Load optional pipeline.css for legacy incident alert styling."""
+    """
+    Load optional ``assets/pipeline.css`` for legacy incident alert styling.
+
+    Injected via ``st.markdown("<style>...")`` when file exists.
+    """
     css_path = Path("assets/pipeline.css")
     if css_path.exists():
         st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
@@ -24,7 +52,10 @@ def render_incident_alert():
     """
     Show incident banner(s) from live session or, if none, all open DB incidents.
 
-    Prefers st.session_state.active_incident when a scan/chat session is active.
+    Prefers ``st.session_state`` active incident mirror when a scan/chat session
+    is active; otherwise iterates ``db.get_open_incidents()``.
+
+    db.py: ``get_open_incidents()`` when no live session.
     """
     incident = incident_scenarios.get_active_incident()
     if incident:
@@ -59,7 +90,11 @@ def _render_incident_banner(incident: dict, source_label: str):
     """
     Render one severity-colored alert box for an incident dict.
 
-    source_label clarifies whether data comes from session state or SQLite.
+    Args:
+        incident: Enriched incident dict (title, subtitle, description, severity, etc.).
+        source_label: "Live session" or "Database" for caption provenance.
+
+    CSS: ``incident-alert-card`` marker before Streamlit alert component.
     """
     severity = incident["severity"]
     tone = incident_scenarios.SEVERITY_COLORS.get(severity, "info")

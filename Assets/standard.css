@@ -1,7 +1,15 @@
 @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Inter:wght@400;500;600&display=swap");
 
 :root {
-    --standard-viewport-offset: 7.25rem;
+    --standard-scans-band: 5.5rem;
+    --standard-page-gap: 1rem;
+    /* Reserve viewport space below chat so only the Incidents title peeks; filters stay below fold */
+    --standard-incidents-peek-offset: 12rem;
+    --standard-chat-block-height: calc(
+        100vh - var(--sentinel-streamlit-header-h, 3.75rem) - var(--standard-scans-band) - var(--standard-page-gap) - var(--standard-incidents-peek-offset)
+    );
+    --standard-chat-row-height: var(--standard-chat-block-height);
+    --standard-incidents-table-height: 15rem;
     --panel-glow-blue: rgba(0, 163, 255, 0.42);
     --panel-glow-purple: rgba(140, 0, 255, 0.32);
     --panel-border: rgba(0, 163, 255, 0.22);
@@ -38,17 +46,11 @@
     display: none;
 }
 
-/* Lock page scroll — only panel interiors scroll */
-html:has(.standard-mode-root),
-body:has(.standard-mode-root),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stMain"],
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stMain"] > div {
-    overflow: hidden !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) {
-    height: 100vh !important;
+/* Standard dashboard layout — chat row sized to leave incidents title peeking at viewport bottom */
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) .block-container {
+    padding-top: var(--sentinel-streamlit-header-h, 3.75rem) !important;
+    padding-bottom: 2rem;
+    max-width: 100%;
 }
 
 [data-testid="stAppViewContainer"]:has(.standard-mode-root) footer {
@@ -59,134 +61,78 @@ body:has(.standard-mode-root),
     margin: 0.2rem 0 0.3rem 0 !important;
 }
 
-/* Never clip the shared header toolbar in standard mode */
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.sentinel-app-title),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.sentinel-header-toolbar),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has([data-testid="stHorizontalBlock"]:has(.sentinel-header-toolbar)),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .sentinel-header-toolbar) {
-    overflow: visible !important;
-    flex-shrink: 0 !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) .main .block-container > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has(.sentinel-app-title) {
-    flex: 0 0 auto !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stMainBlockContainer"],
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) .main .block-container {
-    max-width: 100%;
-    padding-top: var(--sentinel-streamlit-header-h, 3.75rem) !important;
-    padding-bottom: 0.15rem;
-    height: calc(100vh - var(--standard-viewport-offset)) !important;
-    max-height: calc(100vh - var(--standard-viewport-offset)) !important;
-    overflow: hidden !important;
-}
-
-/* Dashboard: scans | incidents | chat panels (fill) | chat input */
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"],
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) .main .block-container > div > [data-testid="stVerticalBlock"] {
-    display: flex !important;
-    flex-direction: column !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    gap: 0.35rem !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stElementContainer"]:has(.standard-chat-split-row),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stElementContainer"]:has(iframe) {
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stElementContainer"]:has(.standard-chat-row-wrapper) {
     display: none !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
-    pointer-events: none !important;
-    flex: 0 0 0 !important;
 }
 
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-scan-strip),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-incident-panel),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-notifications-panel) {
-    flex: 0 0 auto !important;
-    min-height: 0 !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-incident-panel) {
-    max-height: 32vh !important;
-    overflow: hidden !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-incident-panel) > [data-testid="stVerticalBlock"] {
-    max-height: 32vh !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-}
-
-/* Chat row — history + sentinel columns fill remaining viewport */
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(> [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:has(.standard-history-panel)) {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-history-panel) {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-    align-items: stretch !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-history-panel) > [data-testid="stColumn"] {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-history-panel) [data-testid="stLayoutWrapper"]:has(.standard-history-panel),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-history-panel) [data-testid="stLayoutWrapper"]:has(.standard-chat-panel) {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-chat-input-row) {
-    flex: 0 0 auto !important;
-}
-
-/* Dashboard 1:4 column rows — match chat + input alignment */
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-history-panel),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-chat-input-row) {
-    flex-wrap: nowrap !important;
-    justify-content: flex-start !important;
+/* Chat row — history + chat share one fixed-height band */
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-chat-row) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 4fr) !important;
+    grid-template-rows: var(--standard-chat-row-height) !important;
     gap: 0.65rem !important;
+    align-items: stretch !important;
+    width: 100% !important;
 }
 
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-history-panel) > [data-testid="stColumn"]:nth-child(1),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-chat-input-row) > [data-testid="stColumn"]:nth-child(1) {
-    flex: 1 1 0% !important;
-    width: auto !important;
-    min-width: 0 !important;
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-chat-row) > [data-testid="stColumn"] {
+    width: 100% !important;
     max-width: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }
 
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-history-panel) > [data-testid="stColumn"]:nth-child(2),
-[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHorizontalBlock"]:has(.standard-chat-input-row) > [data-testid="stColumn"]:nth-child(2) {
-    flex: 4 1 0% !important;
-    width: auto !important;
-    min-width: 0 !important;
-    max-width: none !important;
+/* History column — stretch to match chat column (panel + input) */
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.standard-history-panel) {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"],
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.standard-history-panel) [data-testid="stLayoutWrapper"]:has(.standard-history-panel),
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.standard-chat-panel) [data-testid="stLayoutWrapper"]:has(.standard-chat-panel) {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"],
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Chat column — single bordered panel fills the row */
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.standard-chat-panel) {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.standard-chat-panel) [data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel),
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stColumn"]:has(.standard-chat-panel) [data-testid="stLayoutWrapper"]:has(.standard-chat-panel) {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Incidents row — title peeks at viewport bottom; filters/table require scroll */
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stVerticalBlockBorderWrapper"]:has(.standard-incidents-row),
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-incidents-row) > [data-testid="stVerticalBlock"] {
+    margin-top: 0.35rem;
+    margin-bottom: 0.75rem;
 }
 
 [data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stHeading"] h3.standard-section-title {
@@ -260,17 +206,42 @@ h3.standard-section-title--compact {
 
 /* Panel chrome — gradient border, dark fill, drop shadow */
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-panel-card),
+[data-testid="stLayoutWrapper"]:has(.standard-panel-card) > [data-testid="stVerticalBlock"],
 [data-testid="stLayoutWrapper"]:has(.standard-scan-strip) > [data-testid="stVerticalBlock"],
 [data-testid="stLayoutWrapper"]:has(.standard-incident-panel) > [data-testid="stVerticalBlock"],
+[data-testid="stLayoutWrapper"]:has(.standard-incidents-row) > [data-testid="stVerticalBlock"],
 [data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"],
 [data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"],
 [data-testid="stLayoutWrapper"]:has(.standard-notifications-panel) > [data-testid="stVerticalBlock"] {
+    box-sizing: border-box !important;
     border: 2px solid transparent !important;
     border-radius: var(--panel-radius) !important;
     background:
         var(--panel-inner-bg) padding-box,
         var(--sentinel-gradient) border-box !important;
     box-shadow: var(--panel-shadow) !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel),
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel),
+[data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"],
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-incidents-row),
+[data-testid="stLayoutWrapper"]:has(.standard-incidents-row) > [data-testid="stVerticalBlock"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-incident-panel) {
+    padding: 0.4rem 0.65rem 0.45rem !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-history-panel) h3.standard-section-title--compact,
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) h3.standard-section-title--compact {
+    white-space: nowrap;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel),
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel),
+[data-testid="stLayoutWrapper"]:has(.standard-history-panel),
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) {
+    width: 100% !important;
 }
 
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-scan-strip),
@@ -399,11 +370,6 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-scan-strip) h3.sta
     font-weight: 600 !important;
 }
 
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-incident-panel),
-[data-testid="stLayoutWrapper"]:has(.standard-incident-panel) > [data-testid="stVerticalBlock"] {
-    padding: 0.35rem 0.65rem 0.45rem !important;
-}
-
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-incident-panel) [data-testid="stCaptionContainer"],
 [data-testid="stLayoutWrapper"]:has(.standard-incident-panel) [data-testid="stCaptionContainer"] {
     margin-top: 0.1rem !important;
@@ -415,110 +381,198 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-incident-panel) [d
     font-size: var(--sentinel-caption-size) !important;
 }
 
-/* Chat panels — stretch to fill the chat row */
-[data-testid="stColumn"]:has(.standard-history-panel) [data-testid="stLayoutWrapper"]:has(.standard-history-panel),
-[data-testid="stColumn"]:has(.standard-chat-panel) [data-testid="stLayoutWrapper"]:has(.standard-chat-panel) {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    max-height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
+/* Chat panels — flex columns; scroll inside history/chat message areas only */
+[data-testid="stLayoutWrapper"]:has(.standard-history-panel),
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel),
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel),
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel),
-[data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"],
-[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] {
-    flex: 1 1 0% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: 0 !important;
-    max-height: 100% !important;
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) {
     overflow: hidden !important;
-    padding: 0.4rem 0.65rem 0.45rem !important;
-    box-sizing: border-box !important;
-    gap: 0.15rem !important;
 }
 
+[data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"],
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"],
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel) > div > [data-testid="stVerticalBlock"],
 div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) > div > [data-testid="stVerticalBlock"] {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    gap: 0.15rem !important;
+    min-height: 0 !important;
+}
+
+/* Title stays fixed; list/messages scroll beneath it */
+[data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"] {
+    flex: 0 0 auto !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:has(.standard-history-scroll-box),
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:has(.standard-chat-scroll-box),
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel) [data-testid="stLayoutWrapper"]:has(.standard-history-scroll-box),
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stLayoutWrapper"]:has(.standard-chat-scroll-box) {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     max-height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    gap: 0.15rem !important;
-}
-
-[data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],
-[data-testid="stLayoutWrapper"]:has(.standard-history-panel) > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:not(:has(.standard-history-scroll-box)),
-[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"],
-[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:not(:has(.standard-chat-scroll-box)) {
-    flex: 0 0 auto !important;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel) > div > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.standard-history-scroll-box),
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel) > div > [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"]:has(.standard-history-scroll-box),
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) > div > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.standard-chat-scroll-box),
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) > div > [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"]:has(.standard-chat-scroll-box),
-[data-testid="stLayoutWrapper"]:has(.standard-history-scroll-box):not(:has(.standard-history-panel)),
-[data-testid="stLayoutWrapper"]:has(.standard-chat-scroll-box):not(:has(.standard-chat-panel)) {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel) h3,
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) h3,
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel) .standard-history-incident-spacer,
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) .standard-chat-incident-header,
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stCaptionContainer"],
-[data-testid="stLayoutWrapper"]:has(.standard-history-panel) h3,
-[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) h3,
-[data-testid="stLayoutWrapper"]:has(.standard-history-panel) .standard-history-incident-spacer,
-[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) .standard-chat-incident-header,
-[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stCaptionContainer"] {
-    flex: 0 0 auto !important;
-}
-
-.standard-history-incident-spacer {
-    display: block;
-    height: 0;
-    margin: 0;
-    padding: 0;
-    flex: 0 0 auto;
-}
-
-/* Scroll regions — fill remaining panel height and scroll internally */
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel) div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-scroll-box),
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-scroll-box),
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-history-panel) [data-testid="stVerticalBlock"]:has(.standard-history-scroll-box),
-div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stVerticalBlock"]:has(.standard-chat-scroll-box),
-[data-testid="stLayoutWrapper"]:has(.standard-history-scroll-box):not(:has(.standard-history-panel)) > [data-testid="stVerticalBlock"],
-[data-testid="stLayoutWrapper"]:has(.standard-chat-scroll-box):not(:has(.standard-chat-panel)) > [data-testid="stVerticalBlock"] {
-    flex: 1 1 0% !important;
-    min-height: 0 !important;
-    height: 100% !important;
-    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;
     padding: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-history-scroll-box) > [data-testid="stVerticalBlock"],
+[data-testid="stLayoutWrapper"]:has(.standard-chat-scroll-box) > [data-testid="stVerticalBlock"] {
+    min-height: 0 !important;
 }
 
 .standard-history-scroll-box,
 .standard-chat-scroll-box,
-.standard-chat-input-row {
+.standard-chat-footer,
+.standard-chat-input-row,
+.standard-chat-action-bar-row,
+.standard-chat-action-buttons {
     display: none;
 }
 
-/* Chat input — gradient border + drop shadow */
+/* Chat footer — action bar + input pinned inside the panel */
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.standard-chat-footer),
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) > div > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.standard-chat-footer) {
+    margin-top: auto !important;
+    padding-top: 0.25rem !important;
+    border-top: 1px solid rgba(0, 163, 255, 0.18) !important;
+    flex: 0 0 auto !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.standard-chat-footer) ~ [data-testid="stElementContainer"],
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.standard-chat-footer) ~ [data-testid="stLayoutWrapper"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) > div > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.standard-chat-footer) ~ [data-testid="stElementContainer"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) > div > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.standard-chat-footer) ~ [data-testid="stLayoutWrapper"] {
+    flex: 0 0 auto !important;
+    margin-top: 0 !important;
+}
+
+/* Compact playbook buttons — single horizontal row */
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stHorizontalBlock"] {
+    gap: 0.2rem !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stColumn"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stColumn"] {
+    min-width: 0 !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-bar-row) ~ [data-testid="stElementContainer"]:has([data-testid="stButton"]):not(:has(.standard-btn-marker)),
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) ~ [data-testid="stElementContainer"]:has([data-testid="stButton"]):not(:has(.standard-btn-marker)),
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-bar-row) ~ [data-testid="stElementContainer"]:has([data-testid="stButton"]):not(:has(.standard-btn-marker)) {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"],
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-bar-row) ~ [data-testid="stLayoutWrapper"]:has([data-testid="stHorizontalBlock"]) {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button,
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-bar-row) ~ [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button,
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stElementContainer"]:has(.standard-btn-marker) + [data-testid="stElementContainer"] button,
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button {
+    min-height: 1.35rem !important;
+    height: 1.35rem !important;
+    max-height: 1.35rem !important;
+    padding: 0 0.32rem !important;
+    border-width: 1px !important;
+    border-radius: 5px !important;
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    line-height: 1.1 !important;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.32) !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button p,
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-bar-row) ~ [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button p,
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stButton"] > button p {
+    font-size: 0.68rem !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stElementContainer"]:has(.standard-btn-marker),
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-bar-row) ~ [data-testid="stElementContainer"]:has(.standard-btn-marker),
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-buttons) + [data-testid="stLayoutWrapper"] [data-testid="stElementContainer"]:has(.standard-btn-marker) {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-bar-row) ~ [data-testid="stElementContainer"]:has([data-testid="stButton"]),
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-action-bar-row) ~ [data-testid="stLayoutWrapper"]:has([data-testid="stButton"]) {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Chat input — inside panel, no extra chrome */
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] {
+    margin: 0 !important;
+    padding: 0.3rem 0 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] [data-testid="stTextInput"] input,
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] [data-testid="stTextInput"] input {
+    background: rgba(4, 12, 32, 0.75) !important;
+    border: 1px solid rgba(0, 163, 255, 0.25) !important;
+    border-radius: 6px !important;
+    color: var(--sentinel-text) !important;
+    font-family: "Inter", sans-serif !important;
+    font-size: 0.82rem !important;
+    line-height: 1.35 !important;
+    min-height: 1.5rem !important;
+    padding: 0.15rem 0.45rem !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] [data-testid="stTextInput"] input:focus,
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] [data-testid="stTextInput"] input:focus {
+    border-color: rgba(140, 0, 255, 0.55) !important;
+    box-shadow:
+        0 0 0 1px rgba(140, 0, 255, 0.25),
+        0 0 10px rgba(0, 163, 255, 0.18) !important;
+}
+
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] button[kind="primary"],
+[data-testid="stLayoutWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] button[kind="primaryFormSubmit"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] button[kind="primary"],
+div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-testid="stElementContainer"]:has(.standard-chat-input-row) [data-testid="stForm"] button[kind="primaryFormSubmit"] {
+    min-height: 1.35rem !important;
+    height: 1.35rem !important;
+    max-height: 1.35rem !important;
+    margin-top: 0.2rem !important;
+    padding: 0 0.45rem !important;
+    font-size: 0.68rem !important;
+    border-radius: 5px !important;
+}
+
+/* Legacy column-level input styles (fallback) */
 [data-testid="stColumn"]:has(.standard-chat-input-row) [data-testid="stForm"] {
     margin: 0 !important;
     padding: 0.35rem 0.65rem 0.45rem !important;
@@ -710,6 +764,12 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.standard-chat-panel) [data-
     overflow: hidden;
     font-family: "Inter", sans-serif !important;
     font-size: 0.84rem !important;
+}
+
+[data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stLayoutWrapper"]:has(.standard-incidents-row) [data-testid="stDataFrame"] {
+    flex: 1 1 auto;
+    min-height: var(--standard-incidents-table-height);
+    width: 100%;
 }
 
 [data-testid="stAppViewContainer"]:has(.standard-mode-root) [data-testid="stDataFrame"] [data-testid="glideDataEditor"],

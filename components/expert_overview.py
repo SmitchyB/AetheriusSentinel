@@ -1,7 +1,41 @@
 """
 Expert mode overview dashboard — KPIs, ticker, hardware, filters, charts.
 
-Primary screen for Assignment 4.2 demos: aggregations, JOINs, and filter widgets.
+Purpose
+-------
+Primary Expert SOC screen (``expert_view == "overview"``): three KPI cards,
+scan strip, security events ticker + connected hardware table, filterable
+incidents table, severity/volume charts, and 24h network traffic line chart.
+
+Navigation / call graph
+-----------------------
+``expert_router.render_expert_mode()`` → ``render_expert_overview()`` (default view).
+
+Session state
+-------------
+- None written directly; ``expert_overview_new_chat`` button calls ``start_general_chat``.
+
+Streamlit widget keys
+---------------------
+- ``expert_overview_new_chat`` — New Analyst Chat on overview.
+- Filter/table keys delegated to ``incidents_list`` and ``scans``.
+
+CSS marker divs
+---------------
+- KPI: ``expert-metric-card`` + ``metric-devices`` / ``metric-critical`` / ``metric-monthly``.
+- Row wrappers: ``expert-top-row-wrapper``, ``expert-incidents-row``, ``expert-telemetry-row``.
+- Panels: ``expert-scan-strip``, ``expert-security-events-panel``, ``expert-hardware-panel``,
+  ``expert-network-panel``.
+
+db.py
+-----
+- ``get_device_count()``, ``get_critical_incident_count()``, ``get_incidents_this_month_count()``
+- ``get_connected_hardware()``, ``get_traffic_timeseries()``
+- ``DB_PATH.exists()`` gate at top
+
+ai_service.py
+-------------
+- **Not used** on overview (charts/KPIs are SQL aggregations only).
 """
 
 import sys
@@ -41,8 +75,10 @@ def _render_network_traffic_chart():
     """
     Line chart of hourly connection counts and synthetic traffic volume.
 
-    Source: db.get_traffic_timeseries() — GROUP BY hour on incident_events.
+    db.py: ``get_traffic_timeseries()`` — GROUP BY hour on incident_events.
     Volume kb values use protocol-based multipliers (demo data, not live SNMP).
+
+    CSS: ``expert-telemetry-network`` row marker.
     """
     st.markdown('<div class="expert-telemetry-network"></div>', unsafe_allow_html=True)
     st.markdown(
@@ -88,7 +124,11 @@ def _render_network_traffic_chart():
 
 
 def _render_expert_kpi(title: str, value: str, marker_class: str, value_class: str):
-    """Render one KPI card (COUNT query result formatted as zero-padded string)."""
+    """
+    Render one KPI card (COUNT query result formatted as zero-padded string).
+
+    CSS: ``expert-metric-card {marker_class}``, ``expert-kpi__value--{value_class}``.
+    """
     with st.container(border=True):
         st.markdown(
             f'<div class="standard-panel-card expert-metric-card {marker_class}"></div>',
@@ -107,9 +147,14 @@ def _render_expert_kpi(title: str, value: str, marker_class: str, value_class: s
 
 def render_expert_overview():
     """
-    Compose the full Expert overview page — default expert_view when not in detail.
+    Compose the full Expert overview page — default ``expert_view`` when not in detail.
 
     Layout order: KPIs → scans → ticker+hardware → incidents table → charts → traffic.
+
+    db.py: device/critical/monthly counts, ``get_connected_hardware``,
+    ``get_traffic_timeseries``; child modules add more queries.
+
+    Widget key: ``expert_overview_new_chat``.
     """
     if not db.DB_PATH.exists():
         st.error(
@@ -152,6 +197,22 @@ def render_expert_overview():
             "metric-monthly",
             "blue",
         )
+
+    analyst_col, _spacer = st.columns([1.2, 4])
+    with analyst_col:
+        st.markdown('<div class="expert-btn-marker expert-btn--new-chat"></div>', unsafe_allow_html=True)
+        if st.button(
+            "New Analyst Chat",
+            key="expert_overview_new_chat",
+            type="primary",
+            use_container_width=True,
+            help="Start a general technical Q&A session",
+        ):
+            from sentinel_actions import start_general_chat
+
+            start_general_chat()
+            st.rerun()
+    st.caption("General technical Q&A — not tied to an incident. Use incident detail for investigation chat.")
 
     with st.container(border=True):
         st.markdown('<div class="standard-panel-card expert-scan-strip"></div>', unsafe_allow_html=True)
