@@ -1,40 +1,4 @@
-"""
-Expert action parameter forms — review/edit draft payloads before simulated deploy.
-
-Purpose
--------
-Renders Streamlit forms for each defense action in ``action_catalog``. Pre-fills
-fields from ``get_draft_payload()`` based on incident device/IP/MAC. Submit paths:
-- **In chat:** ``handle_expert_deploy()`` (marks draft consumed in messages).
-- **On detail page:** ``execute_incident_action()`` → writes ``incident_actions`` via db.
-
-No real firewall/EDR API is invoked; results are text rows in SQLite.
-
-Navigation / call graph
------------------------
-- ``expert_incident_actions.render_response_actions`` — inline form after Configure.
-- ``expert_chat_drawer._render_expert_draft_form`` — inline in message list.
-
-Session state
--------------
-- Detail page: ``expert_action_form_{incident_id}`` stores selected action key
-  (cleared on successful deploy via ``session_state.pop``).
-
-Streamlit widget keys
----------------------
-- Form: ``{key_prefix}_expert_form_{action_key}_{draft_message_index}``.
-- Fields are unnamed widgets inside form (Streamlit auto-keys per form scope).
-
-CSS marker divs
----------------
-- ``render_action_button_marker(action_key)`` before submit button.
-- Detail inline: ``expert-draft-form`` wrapper div.
-
-db.py / ai_service.py
----------------------
-- **Indirect** via ``execute_incident_action`` / ``handle_expert_deploy`` → db writes.
-- No direct ``ai_service`` calls in this module.
-"""
+"""Expert action parameter forms — review/edit draft payloads before simulated deploy."""
 
 import streamlit as st
 
@@ -52,23 +16,7 @@ def render_expert_action_approval(
     draft_message_index: int | None = None,
     incident_id: int | None = None,
 ) -> None:
-    """
-    Render a Streamlit form pre-filled with get_draft_payload() defaults.
-
-    Args:
-        action_key: Catalog key (normalized internally).
-        incident: Active incident dict for draft pre-fill.
-        key_prefix: Prefix for form widget key (``expert_chat``, ``expert_detail_{id}``).
-        in_chat: True when form is embedded in analyst drawer (compact "Run it" label).
-        draft_message_index: Chat message index to mark consumed after deploy.
-        incident_id: Required for detail-page deploy path (not used in_chat).
-
-    Widget key:
-        Form ``{key_prefix}_expert_form_{action_key}_{draft_message_index}``.
-
-    Submit:
-        in_chat → ``handle_expert_deploy``; else → ``execute_incident_action`` (db).
-    """
+    """Render a Streamlit form pre-filled with get_draft_payload() defaults."""
     action_key = normalize_action_key(action_key)
     # Pre-fill from action_catalog templates based on incident device/indicator.
     draft = get_draft_payload(action_key, incident)
@@ -104,11 +52,7 @@ def render_expert_action_approval(
 
 
 def _render_payload_fields(action_key: str, draft: dict) -> dict:
-    """
-    Build action-specific form fields and return collected payload dict.
-
-    One elif branch per action_key — mirrors expert_params in action_catalog.ACTIONS.
-    """
+    """Build action-specific form fields and return collected payload dict."""
     payload: dict = {}
 
     if action_key == "perm_block":

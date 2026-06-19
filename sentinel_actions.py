@@ -1,42 +1,4 @@
-"""Chat session state helpers and AI chat orchestration for Sentinel.
-
-This module is the **Streamlit session-state layer** for all chat UX. It sits
-between UI components and the playbook engine in ``incident_scenarios``:
-
-::
-
-    User types / clicks button
-        → sentinel_actions.append_message / handle_chat_prompt
-        → handle_sentinel_chat_message (scope guards, intent routing)
-        → ai_service.answer_chat (real LLM when configured)
-        → incident_scenarios (playbook buttons, get-started, plan updates)
-
-**Session keys owned or initialized here:**
-
-- ``messages`` — in-memory chat thread; optionally mirrored to SQLite.
-- ``active_session_id`` — when set, ``append_message`` persists to DB.
-- ``active_incident_id`` — scopes chat to one incident (None = general Q&A).
-- ``expert_mode``, ``side_panel_open``, drawer/history expansion flags.
-- ``pending_plan_update`` — AI-offered playbook revision awaiting Yes/No.
-- ``pending_action_verification`` — resolution shortcut awaiting confirm.
-
-**Session keys owned by incident_scenarios (but read here):**
-
-- ``awaiting_get_started``, ``ai_busy``, ``generating_playbook_for``.
-- ``active_incident``, ``playbook_phase``, ``recommended_action_keys``.
-
-**Free-text gating:** ``chat_input_disabled`` and
-``chat_has_pending_step_for_current_playbook`` block the text box while the
-user must click a playbook button, submit an expert draft, or wait for AI.
-
-**Legacy paths:** ``SCAN_RESPONSES``, ``RESPONSE_RESPONSES``, and
-``action_button`` serve older demo buttons not wired through the playbook
-engine. New work should use ``incident_scenarios.trigger_scan`` and sticky
-action handlers instead.
-
-**Not in this module:** Playbook phase math, action execution, scan incident
-creation — see ``incident_scenarios.py``.
-"""
+"""Chat session state helpers and AI chat orchestration for Sentinel."""
 
 import streamlit as st
 
@@ -60,8 +22,10 @@ STANDARD_WELCOME_MESSAGE = (
 WELCOME_MESSAGE = EXPERT_WELCOME_MESSAGE
 
 # ---------------------------------------------------------------------------
-# Legacy demo responses — used by older action_button flows (not playbook engine)
+# Legacy demo responses — kept for older action_button flows (not playbook engine)
 # ---------------------------------------------------------------------------
+# Intentional compatibility layer; new work should use the playbook engine in
+# incident_scenarios rather than these canned SCAN_RESPONSES / RESPONSE_RESPONSES.
 SCAN_RESPONSES = {
     "ai_threat_sweep": (
         "AI Threat Sweep complete. Reviewed recent local logs and traffic patterns. "
@@ -107,7 +71,7 @@ RESPONSE_RESPONSES = {
 }
 
 # ---------------------------------------------------------------------------
-# Placeholder AI — fallback when user sends free-text chat (no LLM hooked up)
+# Placeholder AI — fallback when Ollama is unreachable or chat is disabled
 # ---------------------------------------------------------------------------
 PLACEHOLDER_AI_REPLY = (
     "I am not hooked up to a full answer system yet, but I got your message. "
@@ -116,20 +80,12 @@ PLACEHOLDER_AI_REPLY = (
 
 
 def generate_sentinel_reply(user_message: str) -> str:
-    """Run AI chat and append assistant message(s). Returns the main reply text.
-
-    Thin alias for ``handle_sentinel_chat_message`` — external callers (e.g.
-    legacy panels) use this name; all orchestration lives in the handler.
-    """
+    """Run AI chat and append assistant message(s). Returns the main reply text."""
     return handle_sentinel_chat_message(user_message)
 
 
 def is_get_started_intent(message: str) -> bool:
-    """Return True when free-text looks like the user wants to begin the plan.
-
-    Matched before AI call when ``awaiting_get_started`` — routes to
-    handle_sticky_action(GET_STARTED_ACTION) without spending an LLM turn.
-    """
+    """Return True when free-text looks like the user wants to begin the plan."""
     normalized = message.strip().lower()
     phrases = (
         "get started",
@@ -145,11 +101,7 @@ def is_get_started_intent(message: str) -> bool:
 
 
 def is_progress_intent(message: str) -> bool:
-    """Return True when the user is asking for status, recap, or the next playbook step.
-
-    Delegates to build_progress_chat_response in incident_scenarios — returns
-    DB-grounded status block plus optional action buttons, bypassing generic AI.
-    """
+    """Return True when the user is asking for status, recap, or the next playbook step."""
     normalized = message.strip().lower()
     if is_get_started_intent(normalized):
         return True
@@ -376,43 +328,25 @@ def is_likely_off_topic(user_message: str, incident: dict | None) -> bool:
     return any(marker in normalized for marker in off_topic_markers)
 
 
+# ---------------------------------------------------------------------------
+# AI chat orchestration — scope guards, two-phase evidence + LLM rerun
+# ---------------------------------------------------------------------------
+
 def chat_input_disabled() -> bool:
-    """Return True when free-text input should be blocked.
-
-    Blocks during AI work (ai_busy, generating_playbook) — see also
-    chat_has_pending_step_for_current_playbook for button/form pending state.
-    """
-    from incident_scenarios import is_ai_busy, is_generating_playbook
-
-    return is_ai_busy() or is_generating_playbook()
+    """Return True when free-text input should be blocked."""
+    return chat_has_pending_step_for_current_playbook()
 
 
 def handle_sentinel_chat_message(user_message: str) -> str:
-    """Run AI chat, append assistant message(s), and offer plan updates when suggested.
-
-    **Orchestration order (do not reorder without UX review):**
-
-    1. General scope → off-topic guard (weather, jokes, etc.).
-    2. Incident scope → other-incident guard (stay focused on active case).
-    3. Pre-ack → get-started intent, progress intent, or off-topic redirect.
-    4. Post-ack → progress intent or off-topic redirect (playbook-aware).
-    5. LLM call via ai_service.answer_chat with phase/scope context.
-    6. Optional second assistant turn if AI suggests a playbook revision.
-
-    Sets ``ai_busy`` around the LLM call so the input box shows as disabled.
-    """
+    """Run AI chat, append assistant message(s), and offer plan updates when suggested."""
     import db
-    import ai_service
     from incident_scenarios import (
         get_active_incident,
         get_playbook_phase,
-        is_ai_busy,
         is_playbook_complete,
-        set_ai_busy,
     )
 
     incident_id = st.session_state.get("active_incident_id")
-    history = st.session_state.get("messages", [])
     expert_mode = bool(st.session_state.get("expert_mode"))
     chat_scope = "incident" if incident_id else "general"
     phase = "closed"
@@ -489,44 +423,44 @@ def handle_sentinel_chat_message(user_message: str) -> str:
             append_message("assistant", reply)
             return reply
 
-    set_ai_busy(True)
-    try:
-        with st.spinner("Sentinel is thinking..."):
-            result = ai_service.answer_chat(
-                user_message,
-                incident_id,
-                history,
-                chat_scope=chat_scope,
-                expert_mode=expert_mode,
-                playbook_phase=phase,
-                awaiting_get_started=bool(st.session_state.get("awaiting_get_started")),
-                incident=incident,
-            )
-    finally:
-        set_ai_busy(False)
+    return _queue_chat_ai_request(
+        user_message=user_message,
+        incident_id=incident_id,
+        chat_scope=chat_scope,
+        expert_mode=expert_mode,
+        phase=phase,
+        incident=incident,
+    )
 
-    append_message("assistant", result.reply)
 
-    # --- Plan-update offer: second message + sticky bar state (not always persisted) ---
-    if (
-        chat_scope == "incident"
-        and result.suggest_plan_update
-        and result.proposed_playbook_keys
-        and incident_id
-        and incident
-        and db.is_incident_acknowledged(incident_id)
-    ):
-        st.session_state.pending_plan_update = {
-            "proposed_keys": result.proposed_playbook_keys,
-            "summary": result.plan_update_summary,
-        }
-        append_message(
-            "assistant",
-            result.plan_update_question,
-            persist=False,
-        )
-
-    return result.reply
+def _queue_chat_ai_request(
+    *,
+    user_message: str,
+    incident_id: int | None,
+    chat_scope: str,
+    expert_mode: bool,
+    phase: str,
+    incident: dict | None,
+) -> str:
+    """Phase 1: show DB evidence in chat, then rerun to run the LLM on the next pass."""
+    request_kind = "general_chat" if chat_scope == "general" else "chat"
+    append_evidence_message(
+        incident_id=int(incident_id) if incident_id else None,
+        request_label="Chat question",
+        request_kind=request_kind,
+        expert_mode=expert_mode,
+    )
+    st.session_state.pending_chat_ai = {
+        "kind": "answer_chat",
+        "user_message": user_message,
+        "incident_id": incident_id,
+        "chat_scope": chat_scope,
+        "expert_mode": expert_mode,
+        "phase": phase,
+        "awaiting_get_started": bool(st.session_state.get("awaiting_get_started")),
+    }
+    st.rerun()
+    return user_message
 
 
 def _is_persisting() -> bool:
@@ -534,12 +468,12 @@ def _is_persisting() -> bool:
     return bool(st.session_state.get("active_session_id"))
 
 
-def init_session_state():
-    """Initialize all chat-related Streamlit session keys with defaults.
+# ---------------------------------------------------------------------------
+# Streamlit session state — chat identity, expert navigation, pending AI work
+# ---------------------------------------------------------------------------
 
-    Called on app startup alongside incident_scenarios.init_incident_state.
-    Does not load from DB — use chat_sessions.load_chat_session for that.
-    """
+def init_session_state():
+    """Initialize all chat-related Streamlit session keys with defaults."""
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "side_panel_open" not in st.session_state:
@@ -564,14 +498,16 @@ def init_session_state():
         st.session_state.pending_plan_update = None
     if "pending_action_verification" not in st.session_state:
         st.session_state.pending_action_verification = None
+    if "pending_chat_ai" not in st.session_state:
+        st.session_state.pending_chat_ai = None
+    if "pending_chat_work_painted" not in st.session_state:
+        st.session_state.pending_chat_work_painted = False
+    if "ai_status_message" not in st.session_state:
+        st.session_state.ai_status_message = None
 
 
 def start_general_chat(*, open_drawer: bool = True) -> None:
-    """Start a new general analyst thread with no incident binding.
-
-    Creates a fresh session_id, clears incident/playbook session keys, and
-    optionally opens the side panel drawer for immediate chat.
-    """
+    """Start a new general analyst thread with no incident binding."""
     import db
 
     st.session_state.active_session_id = db.create_session_id()
@@ -581,19 +517,16 @@ def start_general_chat(*, open_drawer: bool = True) -> None:
     st.session_state.awaiting_get_started = False
     st.session_state.playbook_phase = None
     st.session_state.pending_plan_update = None
+    st.session_state.pending_chat_ai = None
+    st.session_state.pending_chat_work_painted = False
+    st.session_state.ai_status_message = None
     st.session_state.expert_drawer_history_expanded = False
     if open_drawer:
         st.session_state.side_panel_open = True
 
 
 def handle_chat_prompt(prompt: str) -> bool:
-    """
-    Handle free-form user text — persists to DB and returns an AI-grounded reply.
-
-    Creates a session_id on first message when none exists. Returns True if the
-    caller should rerun (message was sent). Entry point from chat input widgets
-    in sentinel_panel and expert_chat_drawer.
-    """
+    """Handle free-form user text — persists to DB and returns an AI-grounded reply."""
     if not prompt.strip():
         return False
 
@@ -610,11 +543,7 @@ def handle_chat_prompt(prompt: str) -> bool:
 
 
 def bump_incidents_table_revision() -> None:
-    """Force incidents table widgets to reload from the database on next render.
-
-    Incrementing an integer in session_state triggers Streamlit widgets keyed
-    on this value to refetch — avoids stale dataframe after scan/action.
-    """
+    """Force incidents table widgets to reload from the database on next render."""
     st.session_state.incidents_table_revision = (
         st.session_state.get("incidents_table_revision", 0) + 1
     )
@@ -641,7 +570,7 @@ def load_messages_from_db(session_id: str):
     import db
 
     st.session_state.active_session_id = session_id
-    st.session_state.messages = db.get_messages_for_session(session_id)
+    st.session_state.messages = hydrate_loaded_messages(db.get_messages_for_session(session_id))
     st.session_state.active_incident_id = db.get_session_incident_id(session_id)
 
 
@@ -652,6 +581,10 @@ def clear_active_chat():
     st.session_state.messages = []
 
 
+# ---------------------------------------------------------------------------
+# Message persistence — append to session state and optional SQLite write
+# ---------------------------------------------------------------------------
+
 def append_message(
     role: str,
     content: str,
@@ -659,23 +592,12 @@ def append_message(
     draft_form: dict | None = None,
     plan_update: dict | None = None,
     persist: bool = True,
+    message_kind: str | None = None,
 ):
-    """Append a message dict to ``st.session_state.messages``.
-
-    **Message shape (in-memory):**
-
-    - ``role`` — ``user`` | ``assistant``
-    - ``content`` — markdown string
-    - ``actions`` — optional list of {key, label, type} playbook buttons
-    - ``actions_consumed`` — set True after click to prevent double-submit
-    - ``draft_form`` — expert param editor {action_key}; consumed on deploy
-    - ``plan_update`` — legacy; plan revisions now use session pending state
-
-    When ``persist`` is True and ``active_session_id`` exists, also writes to
-    ``chat_messages`` via db.save_chat_message (actions/forms are NOT stored in
-    DB — they are re-derived from playbook state on resume).
-    """
+    """Append a message dict to ``st.session_state.messages``."""
     message = {"role": role, "content": content}
+    if message_kind:
+        message["message_kind"] = message_kind
     if actions:
         message["actions"] = actions
         message["actions_consumed"] = False
@@ -695,6 +617,51 @@ def append_message(
             content,
             st.session_state.active_incident_id,
         )
+
+
+def append_evidence_message(
+    *,
+    incident_id: int | None,
+    request_label: str,
+    request_kind: str,
+    expert_mode: bool | None = None,
+    next_action_key: str | None = None,
+    update_row: dict | None = None,
+    persist: bool = True,
+) -> None:
+    """Append an assistant turn showing database evidence retrieved for an AI request."""
+    import ai_service
+
+    if expert_mode is None:
+        expert_mode = bool(st.session_state.get("expert_mode"))
+
+    body = ai_service.format_request_evidence_markdown(
+        incident_id=incident_id,
+        request_label=request_label,
+        request_kind=request_kind,
+        expert_mode=expert_mode,
+        next_action_key=next_action_key,
+        update_row=update_row,
+    )
+    content = ai_service.build_evidence_message_content(request_label, body)
+    append_message("assistant", content, message_kind="evidence", persist=persist)
+
+
+def hydrate_loaded_messages(messages: list[dict]) -> list[dict]:
+    """Restore in-memory metadata (e.g. message_kind) when loading from SQLite."""
+    import ai_service
+
+    hydrated: list[dict] = []
+    for message in messages:
+        row = dict(message)
+        if row.get("message_kind"):
+            hydrated.append(row)
+            continue
+        content = str(row.get("content") or "")
+        if ai_service.is_evidence_message_content(content):
+            row["message_kind"] = "evidence"
+        hydrated.append(row)
+    return hydrated
 
 
 def append_user_choice(label: str):
@@ -742,14 +709,7 @@ def latest_pending_draft_form_index() -> int | None:
 
 
 def chat_has_pending_step_for_current_playbook() -> bool:
-    """Return True when UI should block free-text until user completes a step.
-
-    Pending states: action buttons, draft forms, or AI work in progress.
-    """
-    from incident_scenarios import is_ai_busy, is_generating_playbook
-
-    if is_ai_busy() or is_generating_playbook():
-        return True
+    """Return True when UI should block free-text until user completes a step."""
     if has_pending_chat_actions():
         return True
     for message in st.session_state.messages:
@@ -760,10 +720,7 @@ def chat_has_pending_step_for_current_playbook() -> bool:
 
 
 def action_button(label: str, response_key: str, responses: dict, **button_kwargs):
-    """Legacy Streamlit button that appends a canned response and reruns.
-
-    Used by older demo paths; playbook flow prefers ``incident_scenarios`` handlers.
-    """
+    """Legacy Streamlit button that appends a canned response and reruns."""
     if st.button(label, use_container_width=True, **button_kwargs):
         append_message("assistant", responses[response_key])
         st.rerun()

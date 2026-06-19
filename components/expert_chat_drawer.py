@@ -1,52 +1,14 @@
-"""
-Expert mode analyst chat drawer — @st.dialog modal with history, sticky action bar, and AI chat.
-
-Purpose
--------
-Expert-mode floating analyst panel opened when ``side_panel_open`` is True.
-Combines history wing, context banner, message list, sticky playbook bar, chat input,
-and inline expert action approval forms for draft messages.
-
-Navigation / call graph
------------------------
-``app.py`` (Expert mode) → ``open_expert_chat_drawer_if_needed()`` →
-``show_expert_chat_drawer()`` (@st.dialog).
-
-Header hamburger (``expert_analyst_chat_toggle`` in app.py) sets ``side_panel_open``.
-
-Session state dependencies
---------------------------
-- ``side_panel_open`` — dialog visibility (cleared on dismiss).
-- ``expert_drawer_history_expanded`` — history wing; cleared on drawer close.
-- ``active_incident_id`` — incident context, sticky bar, placeholder text.
-- ``messages`` — chat transcript (via ``render_chat_messages``).
-- ``active_session_id`` — hamburger logic in app.py for history expand default.
-
-Streamlit widget keys
----------------------
-- ``expert_drawer_new_chat`` — start general chat inside drawer.
-- ``expert_drawer_chat`` — ``st.chat_input`` for prompts.
-- History wing keys from ``chat_history`` (``expert_history_wing_toggle``, etc.).
-- Form keys from ``expert_action_form`` when draft inline.
-
-CSS marker divs
----------------
-- ``expert-drawer-root`` — dialog root scope for expert.css.
-- ``expert-drawer-main``, ``expert-drawer-main-body``, ``expert-drawer-actions-row``.
-- ``expert-btn-marker expert-btn--new-chat`` — new chat button.
-- ``expert-drawer-chat-panel`` — fixed-height message container.
-
-db.py / ai_service.py
----------------------
-- **No direct calls.** ``handle_chat_prompt`` → db + ai_service;
-  ``start_general_chat`` may create session rows via chat_sessions/db.
-"""
+"""Expert mode analyst chat drawer — @st.dialog modal with history, sticky action bar, and AI chat."""
 
 import streamlit as st
 
 from components.chat_history import render_expert_drawer_history
 from components.expert_action_form import render_expert_action_approval
-from components.sentinel_panel import render_chat_context_banner, render_chat_messages
+from components.sentinel_panel import (
+    finish_pending_chat_work,
+    render_chat_context_banner,
+    render_chat_messages,
+)
 from components.sticky_action_bar import render_sticky_action_bar
 from incident_scenarios import get_active_incident
 from sentinel_actions import (
@@ -58,12 +20,12 @@ from sentinel_actions import (
 )
 
 
-def _close_expert_drawer():
-    """
-    Dialog ``on_dismiss`` callback — clears drawer visibility flags.
+# ---------------------------------------------------------------------------
+# Expert chat dialog — modal analyst panel opened from header hamburger
+# ---------------------------------------------------------------------------
 
-    Session writes: ``side_panel_open=False``, ``expert_drawer_history_expanded=False``.
-    """
+def _close_expert_drawer():
+    """Dialog ``on_dismiss`` callback — clears drawer visibility flags."""
     st.session_state.side_panel_open = False
     st.session_state.expert_drawer_history_expanded = False
 
@@ -73,12 +35,7 @@ def _render_expert_draft_form(
     message_index: int,
     pending_draft_index: int | None,
 ):
-    """
-    Inline parameter approval form embedded in a chat message.
-
-    Only renders for the pending draft index when message has unconsumed ``draft_form``.
-    Delegates to ``render_expert_action_approval(..., in_chat=True)``.
-    """
+    """Inline parameter approval form embedded in a chat message."""
     draft_form = message.get("draft_form")
     if not draft_form or message.get("draft_form_consumed"):
         return
@@ -101,16 +58,7 @@ def _render_expert_draft_form(
 
 @st.dialog("Sentinel Analyst", width="large", dismissible=True, on_dismiss=_close_expert_drawer)
 def show_expert_chat_drawer():
-    """
-    Modal chat UI for Expert mode — history, context banner, messages, and input.
-
-    Widget keys: ``expert_drawer_new_chat``, ``expert_drawer_chat``.
-
-    Child renderers: ``render_expert_drawer_history``, ``render_chat_context_banner``,
-    ``render_chat_messages``, ``render_sticky_action_bar(key_prefix="expert")``.
-
-    AI path: ``handle_chat_prompt`` on chat input submit.
-    """
+    """Modal chat UI for Expert mode — history, context banner, messages, and input."""
     st.markdown('<div class="expert-drawer-root"></div>', unsafe_allow_html=True)
     render_expert_drawer_history()
 
@@ -143,6 +91,8 @@ def show_expert_chat_drawer():
                 render_draft_form=_render_expert_draft_form,
                 pending_draft_index=pending_draft_index,
             )
+            if finish_pending_chat_work():
+                st.rerun()
 
         if st.session_state.get("active_incident_id"):
             render_sticky_action_bar(key_prefix="expert")
@@ -162,10 +112,6 @@ def show_expert_chat_drawer():
 
 
 def open_expert_chat_drawer_if_needed():
-    """
-    Called from ``app.py`` each Expert-mode rerun — opens dialog when ``side_panel_open``.
-
-    Session read: ``side_panel_open``.
-    """
+    """Called from ``app.py`` each Expert-mode rerun — opens dialog when ``side_panel_open``."""
     if st.session_state.get("side_panel_open"):
         show_expert_chat_drawer()

@@ -1,47 +1,4 @@
-"""Incident scenarios, playbook flow, and action execution.
-
-**Role in the architecture**
-
-This module is the **playbook / scenario engine** for the Aetherius Sentinel
-Streamlit prototype. UI components call into here; they should not duplicate
-phase logic or action gating.
-
-::
-
-    trigger_scan / seed / open chat
-        → DB incident + auto investigation actions
-        → run_post_investigation_ai_analysis (ai_service)
-        → playbook saved to SQLite
-
-    User: Get started / sticky action
-        → acknowledge_incident_flow / execute_incident_action
-        → can_execute_action gates by phase + monitoring
-        → chat messages via sentinel_actions.append_message
-
-**Major subsystems within this file**
-
-1. **Static scenario catalog** — ``INCIDENTS``, ``SCAN_INCIDENT_POOL``, maps.
-2. **Session state** — ``init_incident_state``, recommended key cache, AI busy.
-3. **Playbook phase** — ``get_playbook_phase``, ``can_execute_action``.
-4. **AI orchestration** — ``run_post_investigation_ai_analysis``, plan updates.
-5. **Action execution** — ``execute_incident_action`` → db + status transitions.
-6. **Chat UX** — sticky bar, bootstrap, progress recap, expert draft/deploy.
-7. **Scan trigger** — ``trigger_scan`` creates incidents and pre-generates plans.
-8. **Monitoring lifecycle** — delegates temporal checks to ``temporal_state``.
-
-**Playbook phase progression**
-
-Phases are derived from DB state (ack, completed actions, monitor_until) and
-the ordered recommended key list — not from a standalone state machine table.
-
-::
-
-    closed | awaiting_ack → containment → eradication → monitoring → post_incident → closed
-
-**Downstream consumers:** ``app.py``, ``sentinel_actions.py``, expert/standard
-UI pages. Action metadata lives in ``action_catalog.py``; time gates in
-``temporal_state.py``.
-"""
+"""Incident scenarios, playbook flow, and action execution."""
 
 from __future__ import annotations
 
@@ -229,11 +186,7 @@ OPEN_STATUSES = {"Active", "Investigating"}
 
 
 def is_terminal_status(status: str) -> bool:
-    """Return True when ``status`` is a closed/resolved terminal state.
-
-    Terminal statuses stop playbook progression; only post_incident actions
-    may remain available in edge cases (documentation after resolution).
-    """
+    """Return True when ``status`` is a closed/resolved terminal state."""
     return status in TERMINAL_STATUSES
 
 
@@ -261,12 +214,7 @@ def can_start_new_incident_conversation(incident: dict) -> bool:
 # State init — Streamlit session keys for incident/playbook UX
 # ---------------------------------------------------------------------------
 def init_incident_state():
-    """Ensure all incident-related session keys exist with safe defaults.
-
-    Called once per Streamlit session from app.py alongside
-    sentinel_actions.init_session_state. Keys here are playbook-specific;
-    chat thread keys live in sentinel_actions.
-    """
+    """Ensure all incident-related session keys exist with safe defaults."""
     if "active_incident" not in st.session_state:
         st.session_state.active_incident = None
     if "scan_rotation" not in st.session_state:
@@ -325,6 +273,16 @@ def is_generating_playbook(incident_id: int | None = None) -> bool:
 def set_ai_busy(value: bool = True) -> None:
     """Set the global AI busy flag for UI gating."""
     st.session_state.ai_busy = value
+
+
+def set_ai_status_message(message: str | None) -> None:
+    """Set user-facing status copy shown in the chat AI banner while busy."""
+    st.session_state.ai_status_message = message
+
+
+def get_ai_status_message() -> str:
+    """Return the active AI status line for chat banners."""
+    return str(st.session_state.get("ai_status_message") or "Sentinel is thinking…")
 
 
 def is_expert_mode() -> bool:
@@ -462,24 +420,7 @@ def format_monitoring_waiting_message(incident: dict) -> str:
 # Playbook phase — derive current response stage from DB + session state
 # ---------------------------------------------------------------------------
 def get_playbook_phase(incident: dict | None = None) -> str:
-    """Return the current playbook phase string for gating UI and actions.
-
-    Phase progression follows the incident's recommended playbook order:
-        closed → awaiting_ack → containment → eradication → monitoring → post_incident → closed
-
-    Returns one of: ``closed``, ``awaiting_ack``, ``containment``,
-    ``eradication``, ``monitoring``, ``post_incident``.
-
-    **Evaluation order matters** — early returns prevent mis-labeling:
-
-    1. Terminal status → ``closed``
-    2. Unacknowledged incident → ``awaiting_ack``
-    3. No recommended keys → ``closed``
-    4. skip_to_documentation completed → ``post_incident``
-    5. monitor_until active → ``monitoring``
-    6. First incomplete containment / eradication / post_incident step
-    7. All recommended complete → ``closed`` (or post_incident if authority flag)
-    """
+    """Return the current playbook phase string for gating UI and actions."""
     incident = incident or get_active_incident()
     if not incident:
         return "closed"
@@ -579,11 +520,7 @@ def _finalize_incident_if_playbook_complete(incident_id: int) -> bool:
 
 
 def _process_expired_monitoring(incident_id: int) -> bool:
-    """When a monitoring window ends, clear the gate and create an update alert.
-
-    Called from ``_sync_incident_lifecycle`` and ``sync_all_monitoring_expirations``
-    on each page load / incident sync. Idempotent: no-op while still monitoring.
-    """
+    """When a monitoring window ends, clear the gate and create an update alert."""
     row = db.get_incident_by_id(incident_id)
     if not row or not row.get("monitor_until"):
         return False
@@ -649,16 +586,7 @@ def _db_authority_recommended(incident_id: int) -> bool:
 
 
 def can_execute_action(action_key: str, incident: dict) -> bool:
-    """Return True if ``action_key`` is allowed for ``incident`` right now.
-
-    Gating rules:
-    - Already-completed actions are never re-run.
-    - Terminal incidents only allow post_incident category actions.
-    - Investigation actions are never user-triggered (auto-run on create).
-    - Category must match the current playbook phase derived from recommendations.
-    - Expert palette: any action in the active phase category; recommended steps
-      in later categories remain blocked until their phase begins.
-    """
+    """Return True if ``action_key`` is allowed for ``incident`` right now."""
     action_key = normalize_action_key(action_key)
     action = get_action(action_key)
     if not action:
@@ -735,19 +663,7 @@ def get_cached_ai_analysis(incident_id: int) -> str | None:
 
 
 def run_post_investigation_ai_analysis(incident_id: int, incident: dict | None = None) -> ai_service.AnalysisResult:
-    """Run AI analysis after auto-investigation and persist playbook to DB (idempotent).
-
-    **Orchestration flow:**
-
-    1. If playbook_recommendation already exists → return cached analysis (no LLM).
-    2. Else call ``ai_service.analyze_incident`` for narrative + action key list.
-    3. Persist recommendation row + optional authority/general recommendations.
-    4. Cache analysis text in session for chat display.
-    5. ``sync_recommended_actions_from_db`` hydrates session key cache.
-
-    Called from: ``trigger_scan``, ``acknowledge_incident_flow``, deferred bootstrap,
-    and ``process_pending_incident_chat_work``.
-    """
+    """Run AI analysis after auto-investigation and persist playbook to DB (idempotent)."""
     existing = db.get_active_playbook_recommendation(incident_id)
     if existing:
         if incident is None:
@@ -812,12 +728,7 @@ def run_post_investigation_ai_analysis(incident_id: int, incident: dict | None =
 
 
 def apply_playbook_update(incident_id: int, incident: dict, proposed_keys: list[str], summary: str) -> list[str]:
-    """Persist a chat-driven playbook revision and refresh session state.
-
-    Deactivates prior recommendation row, inserts merged key list (completed
-    steps preserved via ai_service.merge_playbook_update), logs a general
-    recommendation note, and rebuilds active_incident + playbook_phase in session.
-    """
+    """Persist a chat-driven playbook revision and refresh session state."""
     current = get_recommended_action_keys(incident_id)
     completed = db.get_incident_action_keys_completed(incident_id)
     filtered = ai_service.filter_remaining_playbook_keys(proposed_keys, incident_id)
@@ -878,21 +789,9 @@ def execute_incident_action(
     *,
     source: str = "expert",
     verification_granted: bool = False,
+    prefetched_result: str | None = None,
 ) -> tuple[bool, str]:
-    """Run a response action: validate, format result, persist, update status.
-
-    Returns ``(success, message)`` where message is the human-readable result
-    or an error explanation.
-
-    **Persistence pipeline:**
-
-    1. ``can_execute_action`` (unless verification_granted for resolution shortcuts)
-    2. ``format_action_result`` or AI report for generate_incident_report
-    3. ``db.insert_incident_action`` with playbook_order when recommended
-    4. Status transitions: Active→Investigating on first containment;
-       monitor_until on prompt_offline_scan; resolution_status on trust/wipe/etc.
-    5. ``_sync_incident_lifecycle`` — monitoring expiry + auto-mitigate when done
-    """
+    """Run a response action: validate, format result, persist, update status."""
     action_key = normalize_action_key(action_key)
     incident_row = db.get_incident_by_id(incident_id)
     if not incident_row:
@@ -916,8 +815,11 @@ def execute_incident_action(
     payload = payload or get_draft_payload(action_key, incident)
 
     if action_key == "generate_incident_report":
-        ai_report = ai_service.generate_incident_report(incident_id)
-        result = ai_report if ai_report else format_action_result(action_key, incident, payload)
+        if prefetched_result is not None:
+            result = prefetched_result
+        else:
+            ai_report = ai_service.generate_incident_report(incident_id)
+            result = ai_report if ai_report else format_action_result(action_key, incident, payload)
     elif action_key == SKIP_TO_DOCUMENTATION_ACTION:
         result = (
             "Skipped remaining containment and eradication steps. "
@@ -1185,21 +1087,7 @@ def _post_incident_chat_actions(incident: dict) -> list[dict]:
 
 
 def get_chat_actions_for_incident(incident: dict, *, guided: bool | None = None) -> list[dict]:
-    """Return chat action buttons appropriate for the current playbook state.
-
-    Standard mode uses guided flow (next recommended step only). Expert mode may
-    request the full phase-appropriate pool via ``guided=False``.
-    After the response playbook completes, all documentation steps are offered in chat.
-
-    **Decision tree:**
-
-    - Unacknowledged → single "Get started" button (unless terminal).
-    - Terminal status or playbook complete → post_incident documentation pool.
-    - Monitoring active → no buttons (waiting state copy only).
-    - post_incident / closed with docs remaining → documentation buttons.
-    - guided=True → next executable step (+ optional skip-to-docs).
-    - guided=False (expert) → up to 4 actions from current phase pool.
-    """
+    """Return chat action buttons appropriate for the current playbook state."""
     if guided is None:
         guided = not is_expert_mode()
 
@@ -1359,14 +1247,7 @@ def get_sticky_primary_action(incident: dict) -> dict | None:
 
 
 def get_sticky_bar_state(incident: dict | None) -> dict:
-    """Compute sticky action bar mode and button definitions.
-
-    Returns a dict with ``mode`` one of:
-    verification, plan_update, get_started, monitoring, normal, idle.
-
-    UI components (sticky_action_bar.py) render from this single source so
-    chat and dashboard stay in sync.
-    """
+    """Compute sticky action bar mode and button definitions."""
     if st.session_state.get("pending_action_verification"):
         return {
             "mode": "verification",
@@ -1432,19 +1313,15 @@ def _append_action_result_message(action_key: str, result_text: str) -> None:
             f"{result_text}\n\n{format_post_incident_chat_prompt(updated)}",
         )
     elif get_playbook_phase(updated) != "closed":
-        prompt = _step_guidance_with_spinner(updated)
-        append_message("assistant", f"{result_text}\n\n{prompt}")
+        append_message("assistant", result_text)
+        _append_next_step_message(updated)
+        return
     else:
         append_message("assistant", result_text)
 
 
 def handle_sticky_action(action_key: str) -> bool:
-    """Dispatch sticky action bar button clicks.
-
-    Central router for: verification confirm/cancel, plan update yes/no,
-    get-started gate, resolution shortcuts (with AI verify), and normal
-    playbook steps. Chat inline buttons delegate here via handle_chat_action.
-    """
+    """Dispatch sticky action bar button clicks."""
     from sentinel_actions import append_message, append_user_choice
 
     action_key = normalize_action_key(action_key)
@@ -1500,31 +1377,53 @@ def handle_sticky_action(action_key: str) -> bool:
         return False
 
     if action_key in RESOLUTION_SHORTCUT_KEYS and requires_resolution_verification(action_key, incident):
-        set_ai_busy(True)
-        try:
-            with st.spinner("Sentinel is reviewing this choice..."):
-                verification = ai_service.verify_resolution_action(
-                    incident["incident_id"],
-                    action_key,
-                )
-        finally:
-            set_ai_busy(False)
-        st.session_state.pending_action_verification = {
+        from sentinel_actions import append_evidence_message
+
+        append_evidence_message(
+            incident_id=int(incident["incident_id"]),
+            request_label=f"Resolution check: {action['label']}",
+            request_kind="chat",
+        )
+        st.session_state.pending_chat_ai = {
+            "kind": "verify_resolution",
+            "incident_id": incident["incident_id"],
             "action_key": action_key,
-            "warning": verification.warning,
-            "checklist": verification.checklist,
-            "confirm_label": verification.confirm_label,
-            "error_detail": verification.error_detail,
         }
+        st.rerun()
         return True
 
     append_user_choice(action["label"])
-    success, result = execute_incident_action(incident["incident_id"], action_key, source="chat")
-    if not success:
-        append_message("assistant", result)
+
+    if action_key == "generate_incident_report":
+        from sentinel_actions import append_evidence_message
+
+        append_evidence_message(
+            incident_id=int(incident["incident_id"]),
+            request_label="Incident report",
+            request_kind="incident_report",
+        )
+        st.session_state.pending_chat_ai = {
+            "kind": "incident_report",
+            "incident_id": incident["incident_id"],
+            "source": "chat",
+        }
+        st.rerun()
         return True
-    result_text = format_plain_action_result(action_key, get_active_incident() or incident)
-    _append_action_result_message(action_key, result_text)
+
+    from sentinel_actions import append_evidence_message
+
+    append_evidence_message(
+        incident_id=int(incident["incident_id"]),
+        request_label=f"Action context: {action['label']}",
+        request_kind="chat",
+    )
+    st.session_state.pending_chat_ai = {
+        "kind": "execute_action",
+        "incident_id": incident["incident_id"],
+        "action_key": action_key,
+        "source": "chat",
+    }
+    st.rerun()
     return True
 
 
@@ -1736,8 +1635,13 @@ def format_where_we_left_off(incident_id: int, incident: dict) -> str:
 
 def _append_summary_with_get_started(incident_id: int, incident: dict) -> None:
     """One combined summary + get-started gate message."""
-    from sentinel_actions import append_message
+    from sentinel_actions import append_evidence_message, append_message
 
+    append_evidence_message(
+        incident_id=incident_id,
+        request_label="Initial incident analysis",
+        request_kind="initial_analysis",
+    )
     append_message(
         "assistant",
         f"{format_incident_summary_message(incident_id, incident)}\n\n"
@@ -1746,16 +1650,43 @@ def _append_summary_with_get_started(incident_id: int, incident: dict) -> None:
     st.session_state.awaiting_get_started = True
 
 
+def _queue_step_guidance_if_needed(incident: dict) -> bool:
+    """Phase 1 for next-step AI guidance: evidence message, then deferred LLM."""
+    incident_id = incident.get("incident_id")
+    if not incident_id or is_monitoring_active(incident):
+        return False
+    next_key = get_next_executable_recommended_step(incident)
+    if not next_key or not ai_service.is_available():
+        return False
+
+    from sentinel_actions import append_evidence_message
+
+    action = get_action(next_key)
+    label = action["label"] if action else next_key
+    append_evidence_message(
+        incident_id=int(incident_id),
+        request_label=f"Next step guidance: {label}",
+        request_kind="step_guidance",
+        next_action_key=next_key,
+    )
+    st.session_state.pending_chat_ai = {
+        "kind": "step_guidance",
+        "incident_id": int(incident_id),
+        "next_action_key": next_key,
+        "playbook_phase": get_playbook_phase(incident),
+        "expert_mode": is_expert_mode(),
+    }
+    st.rerun()
+    return True
+
+
 def _step_guidance_with_spinner(incident: dict) -> str:
     """Generate next-step guidance, showing a spinner when AI is called."""
     if is_ai_busy():
         return format_chat_action_prompt(incident)
-    set_ai_busy(True)
-    try:
-        with st.spinner("Sentinel is preparing your next step..."):
-            return format_chat_action_prompt(incident)
-    finally:
-        set_ai_busy(False)
+    if _queue_step_guidance_if_needed(incident):
+        return ""
+    return format_chat_action_prompt(incident)
 
 
 def _append_post_playbook_message(incident: dict, prefix: str = "") -> None:
@@ -1775,7 +1706,9 @@ def _append_next_step_message(incident: dict) -> None:
     """One assistant turn: step guidance plus action buttons."""
     from sentinel_actions import append_message
 
-    prompt = _step_guidance_with_spinner(incident)
+    if _queue_step_guidance_if_needed(incident):
+        return
+    prompt = format_chat_action_prompt(incident)
     append_message(
         "assistant",
         prompt,
@@ -1808,13 +1741,131 @@ def ensure_post_playbook_chat_actions() -> None:
     ensure_playbook_chat_actions()
 
 
-def process_pending_incident_chat_work() -> bool:
-    """Finish deferred playbook generation and bootstrap chat messages.
+def process_pending_chat_ai() -> bool:
+    """Run deferred LLM work after evidence was shown in chat (two-phase AI flow)."""
+    pending = st.session_state.get("pending_chat_ai")
+    if not pending:
+        return False
 
-    When ``resume_incident_chat`` finds no playbook yet, it sets
-    ``generating_playbook_for`` and returns. On the next rerun this function
-    runs AI analysis, then seeds the chat thread if still empty.
-    """
+    from sentinel_actions import append_message
+
+    kind = pending.get("kind")
+    incident_id = pending.get("incident_id")
+    expert_mode = bool(pending.get("expert_mode", st.session_state.get("expert_mode")))
+
+    set_ai_busy(True)
+    try:
+        if kind == "answer_chat":
+            set_ai_status_message("Sentinel is thinking…")
+            incident = get_active_incident() if incident_id else None
+            history = st.session_state.get("messages", [])
+            result = ai_service.answer_chat(
+                pending.get("user_message", ""),
+                incident_id,
+                history,
+                chat_scope=pending.get("chat_scope", "incident"),
+                expert_mode=expert_mode,
+                playbook_phase=pending.get("phase", "closed"),
+                awaiting_get_started=bool(pending.get("awaiting_get_started")),
+                incident=incident,
+            )
+            append_message("assistant", result.reply)
+            if (
+                pending.get("chat_scope") == "incident"
+                and result.suggest_plan_update
+                and result.proposed_playbook_keys
+                and incident_id
+                and incident
+                and db.is_incident_acknowledged(incident_id)
+            ):
+                st.session_state.pending_plan_update = {
+                    "proposed_keys": result.proposed_playbook_keys,
+                    "summary": result.plan_update_summary,
+                }
+                append_message(
+                    "assistant",
+                    result.plan_update_question,
+                    persist=False,
+                )
+
+        elif kind == "step_guidance" and incident_id:
+            set_ai_status_message("Sentinel is preparing your next step…")
+            incident_row = db.get_incident_by_id(incident_id)
+            incident = build_active_incident_from_db(incident_row) if incident_row else {}
+            next_key = pending.get("next_action_key")
+            phase = pending.get("playbook_phase", get_playbook_phase(incident))
+            ai_text = ai_service.generate_step_guidance(
+                incident_id,
+                incident,
+                next_key,
+                playbook_phase=phase,
+                expert_mode=expert_mode,
+            )
+            prompt = ai_text or format_chat_action_prompt(incident)
+            append_message("assistant", prompt)
+
+        elif kind == "incident_report" and incident_id:
+            set_ai_status_message("Sentinel is generating your incident report…")
+            ai_report = ai_service.generate_incident_report(incident_id)
+            incident_row = db.get_incident_by_id(incident_id)
+            if not incident_row:
+                append_message("assistant", "Incident not found.")
+            else:
+                incident = build_active_incident_from_db(incident_row)
+                payload = get_draft_payload("generate_incident_report", incident)
+                success, result_text = execute_incident_action(
+                    incident_id,
+                    "generate_incident_report",
+                    payload=payload,
+                    source=pending.get("source", "chat"),
+                    prefetched_result=ai_report,
+                )
+                if not success:
+                    append_message("assistant", result_text)
+                else:
+                    _append_action_result_message("generate_incident_report", result_text)
+
+        elif kind == "execute_action" and incident_id:
+            set_ai_status_message("Sentinel is thinking…")
+            action_key = pending.get("action_key", "")
+            success, result = execute_incident_action(
+                incident_id,
+                action_key,
+                source=pending.get("source", "chat"),
+            )
+            if not success:
+                append_message("assistant", result)
+            else:
+                incident_row = db.get_incident_by_id(incident_id)
+                incident = (
+                    build_active_incident_from_db(incident_row)
+                    if incident_row
+                    else (get_active_incident() or {})
+                )
+                result_text = format_plain_action_result(action_key, incident)
+                _append_action_result_message(action_key, result_text)
+
+        elif kind == "verify_resolution" and incident_id:
+            set_ai_status_message("Sentinel is reviewing this choice…")
+            action_key = pending.get("action_key", "")
+            verification = ai_service.verify_resolution_action(incident_id, action_key)
+            st.session_state.pending_action_verification = {
+                "action_key": action_key,
+                "warning": verification.warning,
+                "checklist": verification.checklist,
+                "confirm_label": verification.confirm_label,
+                "error_detail": verification.error_detail,
+            }
+    finally:
+        set_ai_busy(False)
+        set_ai_status_message(None)
+
+    st.session_state.pending_chat_ai = None
+    return True
+
+
+def process_pending_incident_chat_work() -> bool:
+    """Finish deferred playbook generation and bootstrap chat messages."""
     incident_id = st.session_state.get("pending_chat_bootstrap_incident_id")
     if not incident_id or not is_generating_playbook(incident_id):
         return False
@@ -1826,12 +1877,13 @@ def process_pending_incident_chat_work() -> bool:
         return False
 
     incident = build_active_incident_from_db(db_row)
+    set_ai_status_message("Sentinel is analyzing incident evidence…")
     set_ai_busy(True)
     try:
-        with st.spinner("Sentinel is building your response plan..."):
-            run_post_investigation_ai_analysis(incident_id, incident)
+        run_post_investigation_ai_analysis(incident_id, incident)
     finally:
         set_ai_busy(False)
+        set_ai_status_message(None)
 
     session_id = db.get_incident_chat_session_id(incident_id)
     if session_id and not db.session_has_messages(session_id):
@@ -1846,16 +1898,7 @@ def process_pending_incident_chat_work() -> bool:
 # Chat flow — open threads, handle button actions, expert draft/deploy
 # ---------------------------------------------------------------------------
 def resume_incident_chat(incident_id: int, *, skip_bootstrap: bool = False) -> None:
-    """Resume or create the canonical investigation chat for a DB incident.
-
-    **Flow:**
-
-    1. Sync lifecycle (monitoring expiry, auto-mitigate).
-    2. get_or_create_incident_chat_session + chat_sessions.load_chat_session.
-    3. Refresh playbook phase and awaiting_get_started from DB ack state.
-    4. If empty thread and playbook exists → bootstrap messages.
-    5. If empty thread and no playbook → defer to process_pending_incident_chat_work.
-    """
+    """Resume or create the canonical investigation chat for a DB incident."""
     import chat_sessions
 
     db_row = _sync_incident_lifecycle(incident_id) or db.get_incident_by_id(incident_id)
@@ -1882,8 +1925,8 @@ def resume_incident_chat(incident_id: int, *, skip_bootstrap: bool = False) -> N
     _append_incident_chat_bootstrap(incident_id, incident)
 
 
-def open_incident_chat(incident_id: int):
-    """Open the canonical investigation chat for a DB incident."""
+def open_incident_chat(incident_id: int) -> None:
+    """Open the canonical investigation chat for a DB incident (alias for resume)."""
     resume_incident_chat(incident_id)
 
 
@@ -2128,11 +2171,7 @@ def format_expert_scan_narrative(scan_label: str, incident: dict) -> str:
 
 
 def _pick_incident_key(scan_key: str) -> str:
-    """Choose next scenario from pool (random or round-robin).
-
-    Uses st.session_state.scan_mode_random and scan_rotation counters so
-    repeated scans of the same type cycle through SCAN_INCIDENT_POOL variants.
-    """
+    """Choose next scenario from pool (random or round-robin)."""
     pool = SCAN_INCIDENT_POOL[scan_key]
     if st.session_state.scan_mode_random:
         return random.choice(pool)
@@ -2142,12 +2181,7 @@ def _pick_incident_key(scan_key: str) -> str:
 
 
 def run_incident_recheck(incident_id: int, update_id: int) -> ai_service.UpdateAnalysisResult:
-    """Re-run simulated investigation after an incident update alert is opened.
-
-    Inserts automated fingerprint, ping sweep, and monitoring_review actions
-    (tagged as re-check), then calls ``ai_service.analyze_incident_update`` for
-    narrative and optional playbook revision suggestion.
-    """
+    """Re-run simulated investigation after an incident update alert is opened."""
     update_row = db.get_incident_update_by_id(update_id)
     if not update_row:
         return ai_service.UpdateAnalysisResult(
@@ -2198,13 +2232,8 @@ def run_incident_recheck(incident_id: int, update_id: int) -> ai_service.UpdateA
 
 
 def open_incident_update(incident_id: int, update_id: int) -> None:
-    """Open chat for a pending incident update — re-scan, summarize, offer next steps.
-
-    Typical entry: user clicks monitoring-complete notification. Clears sticky
-    pending states, resumes chat without bootstrap, runs recheck + AI analysis,
-    appends opener message and optional plan-update offer.
-    """
-    from sentinel_actions import append_message, bump_notifications_revision
+    """Open chat for a pending incident update — re-scan, summarize, offer next steps."""
+    from sentinel_actions import append_evidence_message, append_message, bump_notifications_revision
 
     clear_sticky_pending_states()
     update_row = db.get_incident_update_by_id(update_id)
@@ -2254,6 +2283,12 @@ def open_incident_update(incident_id: int, update_id: int) -> None:
     opener_parts.append("I re-checked your network context for this device.")
     opener = "\n\n".join(part for part in opener_parts if part)
 
+    append_evidence_message(
+        incident_id=incident_id,
+        request_label="Incident update re-check",
+        request_kind="update_recheck",
+        update_row=update_row,
+    )
     append_message("assistant", opener, persist=True)
 
     if result.suggest_plan_update and result.playbook_action_keys and result.plan_update_summary:
@@ -2274,20 +2309,7 @@ def open_incident_update(incident_id: int, update_id: int) -> None:
 # Scan trigger — create DB incident, seed session, append chat narrative
 # ---------------------------------------------------------------------------
 def trigger_scan(scan_key: str):
-    """Run a demo scan: pick scenario, persist incident, pre-generate AI plan.
-
-    Flow:
-    1. Pick scenario from SCAN_INCIDENT_POOL (random or rotation)
-    2. Optionally enrich with real device row from SCENARIO_DEVICE_MAP
-    3. ``create_incident_with_investigation`` seeds DB + auto investigation actions
-    4. AI analysis + playbook saved to DB (spinner shown)
-    5. Standard: alert appears in notifications — chat opens when user clicks it
-    6. Expert: navigate to incident detail (plan visible on page, chat on demand)
-
-    **Session side effects:** Expert mode keeps active_incident; standard mode
-    clears chat binding so the user must open the alert from the notifications
-    list (realistic SOC workflow).
-    """
+    """Run a demo scan: pick scenario, persist incident, pre-generate AI plan."""
     incident_key = _pick_incident_key(scan_key)
     incident = INCIDENTS[incident_key].copy()
     incident["key"] = incident_key
@@ -2360,11 +2382,7 @@ def trigger_scan(scan_key: str):
 
 
 def sync_incident_chat():
-    """No-op — chat prompts are appended explicitly after actions.
-
-    Retained for backward compatibility with older components that called this
-    on every rerun expecting automatic next-step injection.
-    """
+    """No-op — chat prompts are appended explicitly after actions."""
     return
 
 

@@ -1,37 +1,4 @@
-"""
-Standard mode layout sizer — injects JavaScript to equalize chat/history scroll heights.
-
-Purpose
--------
-Streamlit does not expose a native way to sync two column scroll regions. This
-module injects a zero-height ``components.html`` iframe whose inline script runs
-in the **parent document** and sets matching heights on
-``.standard-chat-scroll-box`` and ``.standard-history-scroll-box``.
-
-Note: ``standard_dashboard`` does not currently call ``render_standard_layout_sizer()``;
-the sizer is available for layouts that need JS height sync. CSS grid in
-``standard.css`` handles most alignment today.
-
-Session state
--------------
-- None (pure client-side DOM manipulation).
-
-Streamlit widget keys
----------------------
-- None (hidden iframe component).
-
-CSS marker divs targeted by JS
-------------------------------
-- ``standard-mode-root`` — gate: script no-ops if absent.
-- ``standard-history-panel``, ``standard-chat-panel`` — column panel roots.
-- ``standard-history-scroll-box``, ``standard-chat-scroll-box`` — scroll targets.
-- ``standard-chat-input-row`` — bottom anchor for chat scroll height.
-- ``standard-history-incident-spacer`` — optional flex spacer for header alignment.
-
-db.py / ai_service.py
----------------------
-- **Neither.**
-"""
+"""Standard mode layout sizer — injects JavaScript to equalize chat/history scroll heights."""
 
 import streamlit.components.v1 as components
 
@@ -226,10 +193,5 @@ _SIZER_HTML = """
 
 
 def render_standard_layout_sizer():
-    """
-    Mount the layout sizer script at the bottom of Standard mode.
-
-    height=0 keeps the iframe invisible; script still executes in parent document.
-    Targets CSS markers documented in module docstring.
-    """
+    """Mount the layout sizer script at the bottom of Standard mode."""
     components.html(_SIZER_HTML, height=0, scrolling=False)

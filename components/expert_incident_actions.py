@@ -1,43 +1,4 @@
-"""Expert incident detail — recommendations, actions taken, and response palette.
-
-Purpose
--------
-Sub-panels for the Expert incident detail page: AI recommendations from DB,
-chronological actions taken, expandable response action palette (IR categories),
-and "Open Sentinel Chat" bridge into the analyst drawer.
-
-Used by ``expert_incident_detail.render_expert_incident_detail()`` inside bordered
-containers — not a standalone route.
-
-Session state dependencies
---------------------------
-- ``expert_action_form_{incident_id}`` — which action's inline form is open.
-- ``side_panel_open`` — set True when opening Sentinel Chat from detail.
-
-Streamlit widget keys
----------------------
-- ``expert_detail_action_{incident_id}_{action_key}`` — Configure buttons (on_click).
-- ``expert_detail_cancel_{incident_id}_{action_key}`` — cancel inline form.
-- ``expert_open_chat_{incident_id}`` — Open Sentinel Chat primary button.
-- Form keys delegated to ``expert_action_form``.
-
-CSS marker divs
----------------
-- Section titles: ``standard-section-title standard-section-title--compact``.
-- ``expert-draft-form`` — inline approval form wrapper.
-- ``expert-btn-marker expert-btn--analyst-chat`` — open chat button.
-- Per-action: ``render_action_button_marker(action_key)``.
-
-db.py
------
-- ``get_recommendations_for_incident(incident_id)``
-- ``get_incident_action_keys_completed(incident_id)`` — playbook checkmarks.
-- ``get_incident_actions_list(incident_id)`` — actions taken timeline.
-
-ai_service.py
--------------
-- **Not used** directly; recommendations may be seeded or generated elsewhere.
-"""
+"""Expert incident detail — recommendations, actions taken, and response palette."""
 
 from __future__ import annotations
 
@@ -63,6 +24,10 @@ from incident_scenarios import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Section chrome — shared title helper for detail panels
+# ---------------------------------------------------------------------------
+
 def _section_title(label: str):
     """Compact section heading matching Standard/Expert shared title CSS class."""
     st.markdown(
@@ -71,14 +36,12 @@ def _section_title(label: str):
     )
 
 
+# ---------------------------------------------------------------------------
+# Recommendations and actions taken — DB-backed incident detail sections
+# ---------------------------------------------------------------------------
+
 def render_ai_recommendations(incident_id: int):
-    """
-    Show recommendations rows from DB — playbook, authority notices, general advice.
-
-    Playbook section lists recommended action keys with ✓/○ based on incident_actions.
-
-    db.py: ``get_recommendations_for_incident``, ``get_incident_action_keys_completed``.
-    """
+    """Show recommendations rows from DB — playbook, authority notices, general advice."""
     _section_title("AI Recommendations")
     if is_generating_playbook(incident_id):
         st.info("Sentinel is building your response plan…")
@@ -124,11 +87,7 @@ def render_ai_recommendations(incident_id: int):
 
 
 def render_actions_taken(incident_id: int):
-    """
-    Chronological list of incident_actions rows (auto + manual steps).
-
-    db.py: ``get_incident_actions_list(incident_id)``.
-    """
+    """Chronological list of incident_actions rows (auto + manual steps)."""
     _section_title("Actions Taken")
     try:
         actions = db.get_incident_actions_list(incident_id)
@@ -149,6 +108,10 @@ def render_actions_taken(incident_id: int):
         st.markdown(f"**{label}**{auto}{rec} — _{row.get('result_summary', '')}_")
         st.caption(f"{row.get('created_at', '')} · {row.get('action_category', '')}")
 
+
+# ---------------------------------------------------------------------------
+# Response palette — expandable IR category action buttons and inline forms
+# ---------------------------------------------------------------------------
 
 def _select_detail_action(incident_id: int, action_key: str) -> None:
     """Store which response action the analyst chose to configure on the detail page."""
@@ -181,18 +144,7 @@ def _active_response_category(
 
 
 def render_response_actions(incident_id: int, incident: dict):
-    """
-    Expandable action palette grouped by IR category (containment, eradication, etc.).
-
-    Buttons respect ``get_playbook_phase()`` gating via ``can_execute_action()``.
-    Simulated deploy writes to incident_actions — no live network API.
-
-    Session: ``expert_action_form_{incident_id}`` for selected configure target.
-
-    Widget keys: ``expert_detail_action_*``, ``expert_detail_cancel_*``.
-
-    db.py: ``get_incident_action_keys_completed`` for completed badges.
-    """
+    """Expandable action palette grouped by IR category (containment, eradication, etc.)."""
     _section_title("Response Actions")
     phase = get_playbook_phase(incident)
     recommended = set(get_recommended_action_keys(incident_id))
@@ -317,13 +269,7 @@ def render_response_actions(incident_id: int, incident: dict):
 
 
 def render_open_chat_button(incident_id: int, *, use_container_width: bool = True):
-    """
-    Open Sentinel Chat with the incident summary and get-started gate.
-
-    Widget key: ``expert_open_chat_{incident_id}``.
-
-    Sets ``side_panel_open=True`` and calls ``open_incident_chat``.
-    """
+    """Open Sentinel Chat with the incident summary and get-started gate."""
     st.markdown('<div class="expert-btn-marker expert-btn--analyst-chat"></div>', unsafe_allow_html=True)
     if st.button(
         "Open Sentinel Chat",

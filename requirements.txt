@@ -1,3 +1,14 @@
+# Aetherius Sentinel — Python dependencies
+# Install: pip install -r requirements.txt
+#
+# Direct runtime packages for the AI-enabled Streamlit prototype:
+#   streamlit   — web UI
+#   pandas      — DataFrames for SQL results and evidence display
+#   requests    — Ollama HTTP API (ai_service.py)
+#   python-dotenv — optional .env loading for OLLAMA_* / AI_* settings
+#
+# Remaining entries are transitive dependencies pinned for reproducible installs.
+
 altair==6.1.0
 anyio==4.13.0
 attrs==26.1.0

@@ -1,45 +1,4 @@
-"""
-Scenario-specific incident event and IOC metadata templates.
-
-Purpose
--------
-Central catalog of **synthetic network telemetry** and **indicator metadata** for
-each attack scenario ``scenario_key``. Templates are data-only; no I/O or SQLite
-access happens in this module.
-
-Consumers
----------
-- ``seed.py`` — calls ``get_scenario_events_with_timestamps`` and ``get_scenario_indicator``
-  when populating ``incident_events`` and ``indicators`` tables.
-- ``db.create_incident_with_investigation`` — calls ``get_scenario_events`` (no explicit
-  timestamps; DB uses ``datetime('now')`` at insert) and ``get_scenario_indicator`` /
-  ``scenario_authority_recommended`` for live incident creation.
-
-Schema mapping
---------------
-Event rows materialize into ``incident_events``::
-    timestamp, source_ip, destination_ip, protocol, payload_summary
-    (+ event_id, incident_id supplied by caller)
-
-Indicator metadata materializes into ``indicators``::
-    indicator_value (caller), indicator_type, threat_actor_group, confidence_score
-
-Placeholder IP convention
--------------------------
-Templates embed fictional ``192.168.1.x`` addresses representing the **primary
-compromised device** for each scenario. ``get_scenario_events_with_timestamps``
-rewrites those placeholders to the actual ``device_ip`` and ``indicator`` arguments
-so the same template dict serves seed data and runtime incidents on any host.
-
-External IPs in templates (198.18.0.77, 203.0.113.88, etc.) use RFC 5737 /
-documentation ranges where possible; they are replaced with ``indicator`` when
-the scenario logic treats them as the IOC endpoint.
-
-Scenario keys (must stay aligned with ``seed.SCENARIO_INDICATORS``,
-``incident_scenarios.INCIDENTS``, and playbook definitions):
-  command_and_control | brute_force | exfiltration | low_risk_anomaly |
-  ransomware_beacon | lateral_scanning
-"""
+"""Scenario-specific incident event and IOC metadata templates."""
 
 from __future__ import annotations
 
@@ -184,28 +143,7 @@ def get_scenario_events(
     device_ip: str,
     indicator: str,
 ) -> list[tuple[str, str, str, str, str]]:
-    """
-  Return incident event field tuples **without** timestamps.
-
-    Used at runtime when ``db`` inserts into ``incident_events`` and lets SQLite
-    default or caller set ``timestamp`` separately. Internally reuses the timestamped
-    helper with a dummy base time, then strips the first column.
-
-    Parameters
-    ----------
-    scenario_key:
-        Key into ``SCENARIO_EVENT_TEMPLATES``.
-    device_ip:
-        Actual ``devices.internal_ip`` for the incident's primary device.
-    indicator:
-        Primary IOC string (C2 IP, attacker IP, etc.) from scenario config.
-
-    Returns
-    -------
-    list[tuple[str, str, str, str, str]]
-        Each tuple: (source_ip, destination_ip, protocol, payload_summary).
-        Empty list if scenario_key is unknown.
-    """
+    """Return incident event field tuples **without** timestamps."""
     rows = get_scenario_events_with_timestamps(
         scenario_key, device_ip, indicator, "2026-01-01 00:00:00",
     )
@@ -218,42 +156,7 @@ def get_scenario_events_with_timestamps(
     indicator: str,
     base_timestamp: str,
 ) -> list[tuple[str, str, str, str, str]]:
-    """
-    Materialize template events with absolute timestamps for seed data.
-
-    Algorithm
-    ---------
-    1. Load template list for ``scenario_key`` (empty if missing).
-    2. Parse ``base_timestamp`` as incident ``created_at`` anchor.
-    3. For each template row, compute ``timestamp = base + offset minutes``.
-    4. Apply per-scenario IP substitution rules to source/destination.
-    5. Append ``(timestamp, src, dst, protocol, summary)`` to output.
-
-    IP substitution rules (placeholder -> runtime value)
-    ------------------------------------------------------
-    command_and_control:  src 192.168.1.1 -> device_ip; dst 198.18.0.77 -> indicator
-    exfiltration:         src 192.168.1.10 -> device_ip; dst containing 185.199.108.153 -> indicator
-    ransomware_beacon:    src 192.168.1.10 -> device_ip; dst 45.33.32.156 -> indicator
-    lateral_scanning:     src 192.168.1.15 -> device_ip (dst internal IPs unchanged)
-    low_risk_anomaly:     src 192.168.1.44 -> indicator (unknown host IS the IOC)
-    brute_force:          dst 192.168.1.20 -> device_ip (attacker src unchanged)
-
-    Parameters
-    ----------
-    scenario_key:
-        Selects which template timeline to expand.
-    device_ip:
-        Substituted for the scenario's primary internal host placeholder.
-    indicator:
-        Substituted for external threat IPs where applicable.
-    base_timestamp:
-        Incident creation time string ``%Y-%m-%d %H:%M:%S``.
-
-    Returns
-    -------
-    list[tuple[str, str, str, str, str]]
-        (timestamp, source_ip, destination_ip, protocol, payload_summary) per event.
-    """
+    """Materialize template events with absolute timestamps for seed data."""
     from datetime import datetime, timedelta
 
     templates = SCENARIO_EVENT_TEMPLATES.get(scenario_key, [])
@@ -290,28 +193,7 @@ def get_scenario_events_with_timestamps(
 
 
 def get_scenario_indicator(scenario_key: str, indicator_value: str) -> dict[str, Any]:
-    """
-    Build a complete indicator dict for insert into ``indicators`` table.
-
-    Combines caller-supplied ``indicator_value`` (the IP or hostname IOC) with
-    scenario-specific metadata from ``SCENARIO_INDICATOR_TEMPLATES``. Unknown
-    scenario keys receive generic fallback metadata so runtime never crashes on
-    a missing template.
-
-    Parameters
-    ----------
-    scenario_key:
-        Scenario identifier.
-    indicator_value:
-        Concrete IOC string, typically from ``seed.SCENARIO_INDICATORS`` or
-        runtime incident detection logic.
-
-    Returns
-    -------
-    dict
-        Keys: indicator_value, indicator_type, threat_actor_group, confidence_score.
-        Ready to unpack into INSERT columns (excluding indicator_id).
-    """
+    """Build a complete indicator dict for insert into ``indicators`` table."""
     template = SCENARIO_INDICATOR_TEMPLATES.get(scenario_key, {
         "indicator_type": "Suspicious Endpoint",
         "threat_actor_group": "Unknown",
@@ -324,28 +206,7 @@ def get_scenario_indicator(scenario_key: str, indicator_value: str) -> dict[str,
 
 
 def scenario_authority_recommended(scenario_key: str, severity: str) -> bool:
-    """
-    Determine whether ``incidents.authority_recommended`` should be set.
-
-    Business rule encoded here and mirrored in seed incident rows: suggest law
-    enforcement / authority notification only for High or Critical severities on
-    scenarios involving clear criminal activity (C2, data theft, ransomware, brute force).
-
-    Not used for low_risk_anomaly or lateral_scanning in seed data (authority_recommended=0).
-
-    Parameters
-    ----------
-    scenario_key:
-        Attack scenario identifier.
-    severity:
-        Incident severity string; must match schema CHECK
-        ('Low', 'Medium', 'High', 'Critical').
-
-    Returns
-    -------
-    bool
-        True when UI should surface authority notification prompts.
-    """
+    """Determine whether ``incidents.authority_recommended`` should be set."""
     return severity in ("Critical", "High") and scenario_key in (
         "exfiltration", "brute_force", "ransomware_beacon", "command_and_control",
     )

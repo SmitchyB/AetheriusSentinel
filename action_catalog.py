@@ -1,47 +1,4 @@
-"""Central registry of incident response actions and playbook generation.
-
-**Catalog architecture (read this first):**
-
-Every response step in the prototype is identified by a stable string key
-(e.g. ``isolate_device``). Metadata for that key lives in ``ACTIONS``. The
-playbook engine in ``incident_scenarios`` never hard-codes labels or categories;
-it always looks up keys here.
-
-::
-
-    action_key  →  ACTIONS[key]  →  category, labels, hints, expert_params
-                 ↘  SCENARIO_STEP_PROMPTS[scenario][key]  →  chat nudge copy
-                 ↘  get_draft_payload(key, incident)      →  expert form defaults
-                 ↘  format_action_result(key, ...)       →  simulated outcome text
-
-**Category lifecycle (IR phases):**
-
-1. ``investigation`` — auto-run on incident create (fingerprint, ping sweep);
-   never offered as user buttons.
-2. ``containment`` — stop spread (isolate, block, sever, etc.).
-3. ``eradication`` — remove threat or resolve benign cases (trust, wipe, patch).
-4. ``post_incident`` — documentation and authority handoff (reports, forensics).
-
-``incident_scenarios.get_playbook_phase`` derives the active phase by checking
-which category still has incomplete *recommended* steps. Derived sets
-(``CONTAINMENT_KEYS``, etc.) are built from ``ACTIONS`` at import time.
-
-**Playbook content vs. catalog content:**
-
-- ``ACTIONS`` defines *what can exist*.
-- AI analysis (``ai_service.analyze_incident``) chooses an ordered subset of
-  keys per incident and persists it to ``playbook_recommendations``.
-- ``SCENARIO_STEP_PROMPTS`` supplies fallback chat copy when AI step guidance
-  is unavailable — keyed by scenario id, not DB title.
-- ``DB_INCIDENT_SCENARIO_MAP`` bridges seeded DB titles → scenario ids.
-
-**Simulation only:** ``format_action_result`` and friends return plausible
-strings; no packets are sent, no hosts are isolated. Expert ``expert_params``
-exist purely to populate Streamlit forms.
-
-**Consumers:** ``incident_scenarios.py``, expert UI forms, ``db.py`` (action
-keys in ``incident_actions``), ``temporal_state.py`` (blocked key subset).
-"""
+"""Central registry of incident response actions and playbook generation."""
 
 from __future__ import annotations
 
@@ -396,11 +353,7 @@ RESOLUTION_KEYS = {k for k, v in ACTIONS.items() if v.get("resolution_status")}
 
 
 def _c2_domain_for_scenario(scenario_key: str | None) -> str:
-    """Return a plausible malicious domain for DNS sinkhole draft payloads.
-
-    Scenario-specific domains make expert forms feel grounded. Unknown scenarios
-    get a generic placeholder — still valid for the simulated sinkhole result.
-    """
+    """Return a plausible malicious domain for DNS sinkhole draft payloads."""
     domains = {
         "command_and_control": "update-cdn.evilcorp.net",
         "ransomware_beacon": "paygate-locker.onion.link",
@@ -409,77 +362,45 @@ def _c2_domain_for_scenario(scenario_key: str | None) -> str:
 
 
 def normalize_action_key(action_key: str) -> str:
-    """Resolve legacy alias to canonical ACTIONS key.
-
-    Always call this at execution boundaries — chat buttons, sticky bar, DB
-    lookups, and expert deploy may still emit pre-refactor key names.
-    """
+    """Resolve legacy alias to canonical ACTIONS key."""
     return ACTION_ALIASES.get(action_key, action_key)
 
 
 def get_action(action_key: str) -> dict[str, Any] | None:
-    """Look up action metadata by key (aliases supported).
-
-    Returns None for unknown keys — callers should treat that as "not runnable".
-    """
+    """Look up action metadata by key (aliases supported)."""
     return ACTIONS.get(normalize_action_key(action_key))
 
 
 def get_actions_by_category(category: str) -> list[tuple[str, dict[str, Any]]]:
-    """Return all (key, metadata) pairs for a given category.
-
-    Used by expert palette UIs to list containment/eradication tools. Order
-    follows insertion order in ACTIONS (stable in Python 3.7+).
-    """
+    """Return all (key, metadata) pairs for a given category."""
     return [(k, v) for k, v in ACTIONS.items() if v["category"] == category]
 
 
 def scenario_key_for_title(title: str) -> str:
-    """Map a DB incident title to a scenario key; default to low_risk_anomaly.
-
-    Scan-created incidents use titles from INCIDENTS; seeded rows use longer
-    titles from seed.py — both paths must resolve to the same scenario id.
-    """
+    """Map a DB incident title to a scenario key; default to low_risk_anomaly."""
     return DB_INCIDENT_SCENARIO_MAP.get(title, "low_risk_anomaly")
 
 
 def playbook_recommendation_text(incident: dict, action_keys: list[str]) -> str:
-    """One-line summary: incident title plus arrow-separated action labels.
-
-    Persisted to playbook_recommendations.recommendation_text and shown in
-    expert incident detail before the user opens chat.
-    """
+    """One-line summary: incident title plus arrow-separated action labels."""
     labels = [get_action(k)["label"] for k in action_keys if get_action(k)]
     joined = " → ".join(labels)
     return f"Recommended response for **{incident.get('title', 'this incident')}**: {joined}."
 
 
 def get_scenario_step_prompt(scenario_key: str, action_key: str) -> str | None:
-    """Return scenario-specific chat copy for the next playbook step, if defined.
-
-    None means incident_scenarios should fall back to generic "Next step: …" copy
-    or AI-generated guidance from ai_service.generate_step_guidance.
-    """
+    """Return scenario-specific chat copy for the next playbook step, if defined."""
     action_key = normalize_action_key(action_key)
     return SCENARIO_STEP_PROMPTS.get(scenario_key, {}).get(action_key)
 
 
 def recommended_steps_in_category(recommended: list[str], category_keys: set[str]) -> list[str]:
-    """Filter a playbook order list to one IR category, preserving order.
-
-    Critical for phase detection: containment phase = first incomplete key in
-    recommended ∩ CONTAINMENT_KEYS, not "any containment action in ACTIONS".
-    """
+    """Filter a playbook order list to one IR category, preserving order."""
     return [k for k in recommended if k in category_keys]
 
 
 def get_draft_payload(action_key: str, incident: dict) -> dict:
-    """Build default expert-form parameter values from incident context.
-
-    Pulls indicator, source device, MAC, and IP from the incident dict so
-    draft forms are pre-filled with realistic demo values. execute_incident_action
-    uses the same defaults when payload is omitted (chat / sticky bar path).
-    """
+    """Build default expert-form parameter values from incident context."""
     action_key = normalize_action_key(action_key)
     indicator = incident.get("indicator") or incident.get("primary_indicator") or incident.get("internal_ip", "")
     source = incident.get("source") or incident.get("device_name", "Unknown")
@@ -533,11 +454,7 @@ def get_draft_payload(action_key: str, incident: dict) -> dict:
 # Formatters — simulated action result strings for chat and expert UI
 # ---------------------------------------------------------------------------
 def format_action_result(action_key: str, incident: dict, payload: dict | None = None) -> str:
-    """Return expert-style result text after an action executes (prototype simulation).
-
-    Each branch formats a distinct sentence so chat and expert deploy feedback
-    feel action-specific. Unknown keys degrade to "{label} completed for {source}."
-    """
+    """Return expert-style result text after an action executes (prototype simulation)."""
     action_key = normalize_action_key(action_key)
     payload = payload or {}
     action = get_action(action_key)
@@ -603,11 +520,7 @@ def format_action_result(action_key: str, incident: dict, payload: dict | None =
 
 
 def format_plain_action_result(action_key: str, incident: dict) -> str:
-    """Standard-mode chat wrapper: prefixes with 'Done.' and notes status changes.
-
-    Resolution actions (trust, false positive, wipe, etc.) append the new
-    incident status so homeowners see closure in plain language.
-    """
+    """Standard-mode chat wrapper: prefixes with 'Done.' and notes status changes."""
     action_key = normalize_action_key(action_key)
     payload = get_draft_payload(action_key, incident)
     text = format_action_result(action_key, incident, payload)
@@ -618,11 +531,7 @@ def format_plain_action_result(action_key: str, incident: dict) -> str:
 
 
 def ip_fallback(incident: dict) -> str:
-    """Best-effort IP string when payload omits target_ip.
-
-    Prefers internal_ip (LAN) over external indicator — matches how containment
-    actions usually target the compromised host, not the remote C2 IP.
-    """
+    """Best-effort IP string when payload omits target_ip."""
     return incident.get("internal_ip") or incident.get("indicator") or "0.0.0.0"
 
 
@@ -630,11 +539,7 @@ def ip_fallback(incident: dict) -> str:
 # simulate_investigation_summaries — auto-run investigation copy on incident create
 # ---------------------------------------------------------------------------
 def simulate_investigation_summaries(incident: dict) -> tuple[str, str]:
-    """Return (fingerprint_summary, ping_sweep_summary) for DB seeding.
-
-    Called when ``db.create_incident_with_investigation`` auto-records
-    fingerprint_device and ping_sweep actions.
-    """
+    """Return (fingerprint_summary, ping_sweep_summary) for DB seeding."""
     device = incident.get("device_name") or incident.get("source", "Unknown device")
     ip = incident.get("internal_ip") or incident.get("indicator", "N/A")
     mac = incident.get("mac_address") or incident.get("source_mac", "N/A")
@@ -651,9 +556,5 @@ def simulate_investigation_summaries(incident: dict) -> tuple[str, str]:
 
 
 def actions_to_json(action_keys: list[str]) -> str:
-    """Serialize playbook action key list for SQLite storage.
-
-    Stored in playbook_recommendations.playbook_actions_json as a JSON array
-    of strings preserving AI/user-defined step order.
-    """
+    """Serialize playbook action key list for SQLite storage."""
     return json.dumps(action_keys)

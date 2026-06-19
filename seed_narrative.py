@@ -1,33 +1,4 @@
-"""
-Seed narrative helpers: synchronized chat transcripts and incident_actions.
-
-Purpose
--------
-Used **exclusively** by ``seed.py`` to build demo data where chat UI transcripts
-and the ``incident_actions`` audit trail stay perfectly aligned. Each user
-"playbook click" in a scripted session produces:
-
-1. An ``incident_actions`` row (status=completed, payload/result from action_catalog)
-2. A ``chat_messages`` user row (plain_label from action_catalog)
-3. A ``chat_messages`` assistant row (formatted result text)
-
-This mirrors runtime behavior in ``db.create_incident_with_investigation`` and
-live action execution, but uses explicit ``action_id`` / ``message_id`` cursors
-and fixed timestamps for reproducible demo narratives.
-
-Schema relationships
---------------------
-- ``incident_actions`` — see schema.sql; FK ``incident_id`` -> ``incidents``
-- ``chat_messages``    — ``session_id`` groups a thread; ``incident_id`` optional FK
-
-Dependencies
-------------
-- ``action_catalog`` — ``get_action``, ``get_draft_payload``, ``format_action_result``,
-  ``format_plain_action_result``, ``simulate_investigation_summaries``
-
-The ``incident_ctx`` dict shape is built by ``seed._incident_ctx()`` and must include
-device fields plus ``source``, ``source_mac``, ``indicator``, and ``key`` (scenario_key).
-"""
+"""Seed narrative helpers: synchronized chat transcripts and incident_actions."""
 
 from __future__ import annotations
 
@@ -45,25 +16,7 @@ from action_catalog import (
 
 
 def _advance_time(base: str, minutes: int) -> str:
-    """
-    Add *minutes* to a seed timestamp string.
-
-    All seed timestamps use the fixed format ``%Y-%m-%d %H:%M:%S`` (SQLite TEXT,
-    no timezone). Used to stagger investigation actions, chat bubbles, and
-    playbook completions within a scripted session.
-
-    Parameters
-    ----------
-    base:
-        Starting timestamp, e.g. ``"2026-06-10 01:15:00"``.
-    minutes:
-        Non-negative offset in minutes (negative not used in seed scripts).
-
-    Returns
-    -------
-    str
-        New timestamp in the same format.
-    """
+    """Add *minutes* to a seed timestamp string."""
     dt = datetime.strptime(base, "%Y-%m-%d %H:%M:%S")
     return (dt + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -76,40 +29,7 @@ def insert_investigation_actions(
     incident_ctx: dict[str, Any],
     created_at: str,
 ) -> int:
-    """
-    Insert the two automated investigation rows every new incident receives.
-
-    Runtime equivalent: the tail of ``db.create_incident_with_investigation`` which
-    calls ``action_catalog.simulate_investigation_summaries``. Seed data uses the
-    same summaries but pins ``action_id`` values and timestamps for deterministic
-    ordering in the expert incident detail panel.
-
-    Rows inserted into ``incident_actions``:
-    ----------------------------------------
-    1. ``fingerprint_device`` — category ``investigation``, is_automated=1
-    2. ``ping_sweep``           — category ``investigation``, is_automated=1
-
-    Both rows: status=``completed``, payload_json=NULL, is_recommended=0,
-    playbook_order=NULL (not part of user playbook).
-
-    Parameters
-    ----------
-    conn:
-        Active SQLite connection (caller manages transaction).
-    action_id:
-        First available PK for ``incident_actions.action_id``.
-    incident_id:
-        Parent incident FK.
-    incident_ctx:
-        Device + scenario context for summary text generation.
-    created_at:
-        Base time; fingerprint at T+0 min, ping_sweep at T+1 min.
-
-    Returns
-    -------
-    int
-        Next unused ``action_id`` (always ``action_id + 2`` after two inserts).
-    """
+    """Insert the two automated investigation rows every new incident receives."""
     # Deferred import avoids circular import if action_catalog ever imports db.
     from action_catalog import simulate_investigation_summaries
 
@@ -172,51 +92,7 @@ def insert_response_action(
     completed_at: str,
     playbook_keys: list[str] | None = None,
 ) -> tuple[int, str, str]:
-    """
-    Insert one user-triggered playbook action and return chat copy for the session.
-
-    Pulls metadata from ``action_catalog`` so seeded chat text matches what the
-    live Dash UI would show after the same action_key is executed.
-
-    Schema row semantics (``incident_actions``):
-    --------------------------------------------
-    - ``action_category`` — from catalog (containment, eradication, post_incident, etc.)
-    - ``payload_json``      — JSON-serialized draft payload (targets, IPs, device names)
-    - ``result_summary``    — technical summary for expert action log
-    - ``is_automated``      — 0 for all response actions (user/chat-driven in seed)
-    - ``is_recommended``    — 1 if action_key appears in optional playbook_keys list
-    - ``playbook_order``    — 1-based index in playbook_keys when present
-
-    Parameters
-    ----------
-    conn:
-        Active SQLite connection.
-    action_id:
-        PK for this action row.
-    incident_id:
-        Parent incident FK.
-    incident_ctx:
-        Device/scenario context; merged with scenario_key for catalog formatters.
-    scenario_key:
-        e.g. ``"command_and_control"`` — passed as ``key`` in formatter context.
-    action_key:
-        Catalog key, e.g. ``"perm_block"``, ``"dns_sinkhole"``.
-    completed_at:
-        Both ``created_at`` and ``completed_at`` — instant completion in demo.
-    playbook_keys:
-        Optional ordered list to set is_recommended and playbook_order; seed_chat_session
-        does not pass this today (defaults to empty), but hook exists for richer seeds.
-
-    Returns
-    -------
-    tuple[int, str, str]
-        (next_action_id, user_label, assistant_text) for chat_messages inserts.
-
-    Raises
-    ------
-    ValueError
-        If ``action_key`` is not registered in action_catalog.
-    """
+    """Insert one user-triggered playbook action and return chat copy for the session."""
     action = get_action(action_key)
     if not action:
         raise ValueError(f"Unknown action key: {action_key}")
@@ -272,61 +148,7 @@ def seed_chat_session(
     session_start: str,
     script: list[tuple[str, str]],
 ) -> tuple[int, int]:
-    """
-    Execute a declarative chat script for one incident session.
-
-    Walks ``script`` in order, advancing a synthetic timeline by one minute per
-    script entry (with an extra minute after each action for assistant confirmation).
-    All messages share ``session_id`` (indexed in schema: idx_chat_messages_session).
-
-    Script tuple format
-    -------------------
-    (``"assistant"``, message_text)
-        Inserts one ``chat_messages`` row with role=assistant.
-
-    (``"action"``, action_key)
-        Inserts incident_actions row via ``insert_response_action``, then:
-        - user message with plain_label at action timestamp
-        - assistant message with formatted result at timestamp + 1 minute
-
-    Timeline model
-    --------------
-    minute_offset starts at 0 and increments once per script entry; action entries
-    consume an additional minute before the assistant confirmation bubble so user
-    and assistant replies do not share identical timestamps.
-
-    Parameters
-    ----------
-    conn:
-        Active SQLite connection.
-    message_id:
-        Next available ``chat_messages.message_id`` PK.
-    action_id:
-        Next available ``incident_actions.action_id`` PK.
-    incident_id:
-        FK on every chat message and action in this session.
-    incident_ctx:
-        Passed through to ``insert_response_action``.
-    scenario_key:
-        Scenario identifier for action catalog formatters.
-    session_id:
-        Stable thread id, e.g. ``"sess-inc1-001"``; later copied to
-        ``incidents.chat_session_id`` by seed.py.
-    session_start:
-        Timestamp of the first script entry (before minute_offset).
-    script:
-        Ordered list of (entry_type, value) tuples.
-
-    Returns
-    -------
-    tuple[int, int]
-        Updated (message_id, action_id) cursors for the caller's next session.
-
-    Raises
-    ------
-    ValueError
-        If script contains an unknown entry_type (not assistant or action).
-    """
+    """Execute a declarative chat script for one incident session."""
     minute_offset = 0
     for entry_type, value in script:
         timestamp = _advance_time(session_start, minute_offset)

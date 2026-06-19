@@ -1,43 +1,4 @@
-"""
-Database seed script for Aetherius Sentinel local development.
-
-Purpose
--------
-Creates ``data/project.db`` from ``schema.sql`` and populates it with a realistic
-home-network demo dataset. This is the **single entry point** for resetting local
-SQLite state during development; the Dash app reads from the same tables defined
-in ``schema.sql``.
-
-What gets seeded (maps 1:1 to schema tables)
---------------------------------------------
-1. ``devices``           — six home-network hosts (gateway, workstation, IoT, etc.)
-2. ``incidents``         — six incidents at different lifecycle stages and severities
-3. ``incident_events``   — per-scenario network telemetry (via ``scenario_telemetry``)
-4. ``indicators``        — IOC rows (IP/host metadata per scenario)
-5. ``incident_indicators`` — junction linking each incident to exactly one indicator
-6. ``recommendations``   — AI playbooks, authority notices, and general tips
-7. ``incident_actions``  — auto investigation + user playbook steps (via ``seed_narrative``)
-8. ``chat_messages``     — general and incident-scoped chat transcripts
-9. ``incident_updates``  — pending alert for incident 6 (monitoring complete demo)
-
-Cross-module dependencies
--------------------------
-- ``scenario_telemetry`` — event templates and IOC metadata for each ``scenario_key``
-- ``seed_narrative``      — ``insert_investigation_actions``, ``seed_chat_session``
-- ``action_catalog``       — (indirectly via seed_narrative) action labels and result text
-
-Scenario keys used here (must match ``scenario_telemetry.SCENARIO_*`` and
-``incident_scenarios`` runtime definitions):
-  command_and_control | brute_force | exfiltration | low_risk_anomaly |
-  ransomware_beacon | lateral_scanning
-
-Run directly::
-
-    python seed.py
-
-Idempotency note: each run drops and recreates tables via ``schema.sql`` executemany,
-so re-running overwrites ``data/project.db`` entirely.
-"""
+"""Database seed script for Aetherius Sentinel local development."""
 
 import json
 import sqlite3
@@ -147,25 +108,7 @@ SCENARIO_INDICATORS = {
 
 
 def _incident_ctx(device_id: int, scenario_key: str) -> dict:
-    """
-    Build the incident context dict consumed by ``seed_narrative`` and ``action_catalog``.
-
-    Merges ``DEVICES[device_id]`` with scenario-specific fields that runtime code
-    also expects when formatting action results and chat copy.
-
-    Parameters
-    ----------
-    device_id:
-        FK into ``devices.device_id`` for the incident being scripted.
-    scenario_key:
-        One of the keys in ``SCENARIO_INDICATORS`` / ``scenario_telemetry``.
-
-    Returns
-    -------
-    dict
-        Device fields plus ``source``, ``source_mac``, ``indicator``, and ``key``.
-        ``source`` duplicates ``device_name`` for legacy formatter keys in action_catalog.
-    """
+    """Build the incident context dict consumed by ``seed_narrative`` and ``action_catalog``."""
     device = DEVICES[device_id]
     return {
         **device,
@@ -184,38 +127,7 @@ def _insert_events(
     device_id: int,
     created_at: str,
 ) -> int:
-    """
-    Bulk-insert ``incident_events`` rows for one incident from scenario templates.
-
-    Delegates event content and relative timestamps to
-    ``scenario_telemetry.get_scenario_events_with_timestamps``, which rewrites
-    placeholder IPs in templates to the actual ``device_ip`` and ``indicator``.
-
-  Schema target: ``incident_events`` (
-        event_id PK, incident_id FK, timestamp, source_ip, destination_ip,
-        protocol, payload_summary
-    )
-
-    Parameters
-    ----------
-    conn:
-        Open SQLite connection with ``PRAGMA foreign_keys = ON``.
-    event_id:
-        Next available ``event_id`` (caller maintains global counter across incidents).
-    incident_id:
-        Parent incident FK.
-    scenario_key:
-        Selects template list in ``scenario_telemetry.SCENARIO_EVENT_TEMPLATES``.
-    device_id:
-        Used only to look up ``internal_ip`` for IP substitution in templates.
-    created_at:
-        Incident ``created_at`` string; anchors all template offset minutes.
-
-    Returns
-    -------
-    int
-        Next unused ``event_id`` after this batch (no gaps — monotonic increment).
-    """
+    """Bulk-insert ``incident_events`` rows for one incident from scenario templates."""
     device_ip = DEVICES[device_id]["internal_ip"]
     indicator = SCENARIO_INDICATORS[scenario_key]
     # Each row: (timestamp, source_ip, destination_ip, protocol, payload_summary)
@@ -233,19 +145,7 @@ def _insert_events(
 
 
 def initialize_database() -> None:
-    """
-    Create the project database, apply schema DDL, and insert all demo rows.
-
-    Execution model
-    ---------------
-    - Opens ``DATABASE_PATH``, enables foreign keys, runs full ``schema.sql``.
-    - All INSERTs occur inside one connection context; single ``commit()`` at end.
-    - On failure before commit, transaction rolls back (atomic seed).
-
-    Insert order respects FK graph in schema.sql:
-      devices -> incidents -> incident_events, indicators, incident_indicators,
-      recommendations -> chat_messages / incident_actions / incident_updates
-    """
+    """Create the project database, apply schema DDL, and insert all demo rows."""
 
     DATABASE_PATH.parent.mkdir(exist_ok=True)
 

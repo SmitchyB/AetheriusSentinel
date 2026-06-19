@@ -1,49 +1,4 @@
-"""
-Header alerts bell and open-incidents notification dropdown.
-
-Purpose
--------
-Renders the global "Alerts" bell in the header (both Standard and Expert modes)
-and the fixed overlay panel listing new open incidents and pending incident updates.
-Clicking an item routes differently by mode: Expert → incident detail page;
-Standard → ``incident_scenarios.open_incident_chat`` or ``open_incident_update``.
-
-Navigation / call graph
------------------------
-``app.py`` header → ``render_expert_notification_bell()``.
-``app.py`` below divider → ``render_expert_notifications_panel()`` when open.
-
-Session state
--------------
-- ``notifications_open`` (bool): Toggled by bell; closed on item click or ✕.
-- ``notifications_revision`` (read-only bump): Forces bell badge refresh on reruns.
-- ``expert_mode`` — routes alert clicks to detail vs chat.
-
-Streamlit widget keys
----------------------
-- ``expert_notification_bell`` — header bell toggle.
-- ``expert_close_notifications`` — panel close ✕.
-- ``expert_notify_{incident_id}`` — one per open incident row.
-- ``expert_update_{update_id}`` — one per pending update row.
-
-CSS marker divs
----------------
-- ``standard-btn-marker sentinel-btn--header-alerts`` — bell button anchor.
-- ``standard-panel-card sentinel-notifications-overlay`` + mode suffix
-  (``expert-notifications-panel`` | ``standard-notifications-panel``).
-- ``sentinel-notifications-scroll`` — scrollable list region.
-- ``sentinel-alert--update`` — visual accent before update rows.
-
-db.py
------
-- ``get_open_incident_count()``, ``get_pending_update_count()`` — badge counts.
-- ``get_open_incidents()``, ``get_pending_incident_updates()`` — panel lists.
-- ``DB_PATH.exists()`` — missing-db warning.
-
-ai_service.py
--------------
-- **Not used.**
-"""
+"""Header alerts bell and open-incidents notification dropdown."""
 
 import streamlit as st
 
@@ -52,19 +7,12 @@ import incident_scenarios
 from components.expert_navigation import navigate_to_incident_detail
 
 
+# ---------------------------------------------------------------------------
+# Header bell — badge counts for new alerts and pending incident updates
+# ---------------------------------------------------------------------------
+
 def render_expert_notification_bell():
-    """
-    Header bell button with new-alert and pending-update counts.
-
-    Toggles ``notifications_open`` session flag (panel rendered in ``app.py``
-    below the header divider).
-
-    Widget key: ``expert_notification_bell``.
-
-    db.py: ``get_open_incident_count()``, ``get_pending_update_count()``.
-
-    CSS: ``sentinel-btn--header-alerts`` marker before button.
-    """
+    """Header bell button with new-alert and pending-update counts."""
     _ = st.session_state.get("notifications_revision", 0)
     try:
         new_count = db.get_open_incident_count()
@@ -106,22 +54,12 @@ def _compact_update_label(title: str, max_len: int = 46) -> str:
     return f"{label[: max_len - 1]}…"
 
 
+# ---------------------------------------------------------------------------
+# Notifications overlay — open incidents and pending update routing
+# ---------------------------------------------------------------------------
+
 def render_expert_notifications_panel():
-    """
-    Fixed overlay panel anchored to the header alerts button.
-
-    Lists new Active incidents and pending incident updates in separate sections.
-    Early-returns when ``notifications_open`` is False.
-
-    Navigation on click:
-        Expert + new alert → ``navigate_to_incident_detail``.
-        Standard + new alert → ``open_incident_chat``.
-        Update row → detail (Expert) + ``open_incident_update`` (both modes).
-
-    Widget keys: ``expert_close_notifications``, ``expert_notify_*``, ``expert_update_*``.
-
-    db.py: ``get_open_incidents()``, ``get_pending_incident_updates()``.
-    """
+    """Fixed overlay panel anchored to the header alerts button."""
     if not st.session_state.get("notifications_open"):
         return
 

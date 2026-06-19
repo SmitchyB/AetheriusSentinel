@@ -1,56 +1,8 @@
-"""
-Expert mode incident detail page — full record inspection and response palette.
-
-Purpose
--------
-Assignment 4.2 drill-down view: summary header, chat actions, AI recommendations,
-actions taken, AI analyst evidence table, security events timeline, and full
-response action palette. Rendered when ``expert_view == "incident_detail"``.
-
-Navigation / call graph
------------------------
-``expert_router`` → ``render_expert_incident_detail()`` when
-``st.session_state.expert_incident_id`` is set.
-
-Back button → ``navigate_to_overview()``.
-Chat buttons → ``open_incident_chat`` / ``start_general_chat`` + drawer open.
-
-Session state dependencies
---------------------------
-- ``expert_incident_id`` — required; DB primary key for all panels.
-- ``side_panel_open`` — opened by chat / start investigation buttons.
-- Playbook phase from ``incident_scenarios.build_active_incident_from_db``.
-
-Streamlit widget keys
----------------------
-- ``expert_detail_back``, ``expert_detail_back_empty`` — back navigation.
-- ``expert_detail_start_investigation`` — ack gate shortcut.
-- ``expert_detail_new_general_chat_{incident_id}`` — general Q&A thread.
-- Sub-module keys from ``expert_incident_actions``.
-
-CSS marker divs
----------------
-- ``expert-incident-detail-root`` — page scope.
-- Panel cards: ``expert-detail-summary-panel``, ``expert-ai-recommendations-panel``,
-  ``expert-actions-taken-panel``, ``expert-ai-evidence-panel``,
-  ``expert-detail-events-panel``, ``expert-detail-playbook-panel``.
-- ``expert-detail-back-row``, ``expert-detail-chat-actions``,
-  ``expert-detail-investigation-action``.
-
-db.py
------
-- ``DB_PATH.exists()``, ``get_incident_by_id``, ``is_incident_acknowledged``.
-- ``get_ai_incident_context(incident_id)`` — evidence table (JOIN/GROUP_CONCAT).
-- ``get_incident_events(incident_id)`` — security events dataframe.
-
-ai_service.py
--------------
-- **Not used** directly. ``get_ai_incident_context`` is DB context for future LLM
-  prompts, not live AI output.
-"""
+"""Expert mode incident detail page — full record inspection and response palette."""
 
 import streamlit as st
 
+import ai_service
 import db
 import incident_scenarios
 from components.expert_incident_actions import (
@@ -69,12 +21,12 @@ from incident_scenarios import (
 from sentinel_actions import start_general_chat
 
 
-def _render_incident_summary(incident: dict):
-    """
-    Header block: title, severity badge, device/IP/MAC captions.
+# ---------------------------------------------------------------------------
+# Summary and metadata — title, device context, navigation
+# ---------------------------------------------------------------------------
 
-    HTML: ``expert-detail-header``, ``expert-detail-title``, ``expert-severity-badge``.
-    """
+def _render_incident_summary(incident: dict):
+    """Header block: title, severity badge, device/IP/MAC captions."""
     severity = incident.get("severity", "Unknown")
     severity_class = severity.lower().replace(" ", "-")
     st.markdown(
@@ -96,16 +48,13 @@ def _render_incident_summary(incident: dict):
         st.caption(f"Created: {incident['created_at']}")
 
 
-def _render_ai_evidence(incident_id: int):
-    """
-    Display AI Analyst Evidence table — DB context for future LLM, not AI output.
+# ---------------------------------------------------------------------------
+# AI evidence — live DB snapshot and per-request chat evidence history
+# ---------------------------------------------------------------------------
 
-    db.py: ``get_ai_incident_context(incident_id)`` — JOIN + GROUP_CONCAT query.
-    """
-    st.markdown(
-        '<h3 class="standard-section-title standard-section-title--compact">AI Analyst Evidence</h3>',
-        unsafe_allow_html=True,
-    )
+def _render_ai_evidence_snapshot(incident_id: int) -> None:
+    """Current database snapshot used to ground AI analysis."""
+    st.markdown("**Current database snapshot**")
     try:
         context_df = db.get_ai_incident_context(incident_id)
     except Exception as error:
@@ -118,13 +67,63 @@ def _render_ai_evidence(incident_id: int):
     else:
         st.dataframe(context_df, use_container_width=True, hide_index=True)
 
+    try:
+        indicators = db.get_incident_indicators(incident_id)
+    except Exception as error:
+        st.error("Could not load indicators for this incident.")
+        st.exception(error)
+        indicators = []
+
+    st.markdown("**Indicators of compromise**")
+    if not indicators:
+        st.caption("No indicators linked to this incident.")
+    else:
+        import pandas as pd
+
+        st.dataframe(pd.DataFrame(indicators), use_container_width=True, hide_index=True)
+
+
+def _render_ai_evidence_history(incident_id: int) -> None:
+    """Per-request evidence blocks persisted from Sentinel Chat."""
+    st.markdown("**Evidence by AI request**")
+    st.caption("Each block matches the database evidence shown in chat before an AI response.")
+    try:
+        messages = db.get_all_messages_for_incident(incident_id, limit=80)
+    except Exception as error:
+        st.error("Could not load chat evidence history for this incident.")
+        st.exception(error)
+        return
+
+    entries = ai_service.parse_evidence_messages(messages)
+    if not entries:
+        st.caption("No AI requests logged in chat yet for this incident.")
+        return
+
+    for entry in reversed(entries):
+        label = entry.get("request_label", "AI request")
+        created = entry.get("created_at") or "chat"
+        title = f"{label} — {created}"
+        with st.expander(title, expanded=False):
+            st.markdown(entry.get("body", ""))
+
+
+def _render_ai_evidence(incident_id: int):
+    """AI Analyst Evidence — live DB snapshot plus per-request history from chat."""
+    st.markdown(
+        '<h3 class="standard-section-title standard-section-title--compact">AI Analyst Evidence</h3>',
+        unsafe_allow_html=True,
+    )
+    _render_ai_evidence_snapshot(incident_id)
+    st.divider()
+    _render_ai_evidence_history(incident_id        )
+
+
+# ---------------------------------------------------------------------------
+# Security events — incident_events timeline table
+# ---------------------------------------------------------------------------
 
 def _render_incident_events(incident_id: int):
-    """
-    Security events timeline for one incident from incident_events table.
-
-    db.py: ``get_incident_events(incident_id)``.
-    """
+    """Security events timeline for one incident from incident_events table."""
     st.markdown(
         '<h3 class="standard-section-title standard-section-title--compact">Security Events</h3>',
         unsafe_allow_html=True,
@@ -148,13 +147,7 @@ def _render_incident_events(incident_id: int):
 
 
 def _render_back_to_dashboard(*, key: str) -> None:
-    """
-    Left-aligned back navigation styled like other expert chrome buttons.
-
-    Widget key: caller-supplied (``expert_detail_back`` or ``_empty`` variant).
-
-    Navigation: ``navigate_to_overview()`` on click.
-    """
+    """Left-aligned back navigation styled like other expert chrome buttons."""
     st.markdown('<div class="expert-detail-back-row"></div>', unsafe_allow_html=True)
     back_col, _ = st.columns([1.35, 4.65], gap="small")
     with back_col:
@@ -165,11 +158,7 @@ def _render_back_to_dashboard(*, key: str) -> None:
 
 
 def _render_summary_chat_actions(incident_id: int) -> None:
-    """
-    Compact horizontal row — investigation chat and general Q&A side by side.
-
-    Widget: ``expert_detail_new_general_chat_{incident_id}``.
-    """
+    """Compact horizontal row — investigation chat and general Q&A side by side."""
     st.markdown('<div class="expert-detail-chat-actions"></div>', unsafe_allow_html=True)
     open_col, general_col, _spacer = st.columns([1, 1, 1.6], gap="small")
     with open_col:
@@ -186,17 +175,12 @@ def _render_summary_chat_actions(incident_id: int) -> None:
             st.rerun()
 
 
+# ---------------------------------------------------------------------------
+# Main layout — stacked panels driven by expert_incident_id
+# ---------------------------------------------------------------------------
+
 def render_expert_incident_detail():
-    """
-    Full incident detail view — driven by ``st.session_state.expert_incident_id``.
-
-    Shown when ``expert_view == 'incident_detail'`` (see ``expert_router.py``).
-
-    db.py: ``get_incident_by_id``, ``is_incident_acknowledged``,
-    ``get_ai_incident_context``, ``get_incident_events``.
-
-    Enriches DB row via ``incident_scenarios.build_active_incident_from_db`` for phase gating.
-    """
+    """Full incident detail view — driven by ``st.session_state.expert_incident_id``."""
     incident_id = st.session_state.get("expert_incident_id")
     if not incident_id:
         st.warning("No incident selected.")

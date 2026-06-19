@@ -1,41 +1,4 @@
-"""Sticky bottom action bar — playbook steps and resolution shortcuts above chat input.
-
-Purpose
--------
-Renders the contextual action strip pinned above the chat input in both Standard
-mode (``sentinel_panel.render_sentinel_chat_input``) and Expert drawer
-(``expert_chat_drawer.show_expert_chat_drawer``). Buttons reflect playbook phase
-from ``incident_scenarios.get_sticky_bar_state()`` — get started, recommended
-steps, verification gates, monitoring idle, post-incident docs.
-
-Navigation / call graph
------------------------
-``sentinel_panel`` / ``expert_chat_drawer`` → ``render_sticky_action_bar(key_prefix=...)``
-→ button click → ``handle_sticky_action()`` → may open forms, execute actions, or
-trigger AI (indirect ``ai_service`` via scenario handlers).
-
-Session state dependencies
---------------------------
-- ``get_active_incident()`` reads mirrored incident from session (not direct db here).
-- Disabled when ``is_ai_busy()`` or ``is_generating_playbook()``.
-
-Streamlit widget keys (pattern)
--------------------------------
-- ``{key_prefix}_sticky_{slot}_{action_key}`` — primary/shortcut playbook buttons.
-- ``{key_prefix}_verify_confirm``, ``{key_prefix}_verify_cancel`` — verification mode.
-- ``key_prefix`` is ``"standard"`` or ``"expert"`` to avoid collisions.
-
-CSS marker divs
----------------
-- ``standard-chat-action-bar`` — outer strip container hook.
-- ``standard-chat-action-buttons`` — row of action buttons.
-- Per-button: ``render_action_button_marker(action_key)`` before each ``st.button``.
-
-db.py / ai_service.py
----------------------
-- **No direct calls.** Action execution and playbook state live in
-  ``incident_scenarios`` / ``sentinel_actions`` (which may call ``db`` and ``ai_service``).
-"""
+"""Sticky bottom action bar — playbook steps and resolution shortcuts above chat input."""
 
 from __future__ import annotations
 
@@ -48,8 +11,6 @@ from incident_scenarios import (
     get_active_incident,
     get_sticky_bar_state,
     handle_sticky_action,
-    is_ai_busy,
-    is_generating_playbook,
 )
 
 
@@ -61,11 +22,7 @@ def _render_action_button(
     disabled: bool,
     use_container_width: bool = True,
 ) -> None:
-    """
-    Render one sticky-bar playbook button with category-colored CSS marker.
-
-    Widget key: ``{key_prefix}_sticky_{slot}_{action['key']}``.
-    """
+    """Render one sticky-bar playbook button with category-colored CSS marker."""
     render_action_button_marker(action["key"])
     if st.button(
         action["label"],
@@ -78,29 +35,15 @@ def _render_action_button(
         st.rerun()
 
 
+# ---------------------------------------------------------------------------
+# Sticky bar modes — verification, plan update, playbook, monitoring idle
+# ---------------------------------------------------------------------------
+
 def render_sticky_action_bar(*, key_prefix: str = "standard") -> None:
-    """
-    Render fixed action strip above the chat input.
-
-    Modes from ``get_sticky_bar_state(incident)``:
-        - ``idle`` — render nothing (early return).
-        - ``verification`` — confirm/cancel pair for risky steps.
-        - ``plan_update`` — column of plan revision buttons.
-        - default — primary + shortcuts + optional post-incident doc buttons.
-        - ``monitoring`` — caption only when no actions available.
-
-    Args:
-        key_prefix: ``"standard"`` or ``"expert"`` — prefixes all widget keys.
-
-    Session state:
-        Reads active incident mirror via ``get_active_incident()``.
-
-    CSS markers:
-        ``standard-chat-action-bar``, ``standard-chat-action-buttons``.
-    """
+    """Render fixed action strip above the chat input."""
     incident = get_active_incident()
     state = get_sticky_bar_state(incident)
-    disabled = is_ai_busy() or is_generating_playbook()
+    disabled = False
 
     st.markdown('<div class="standard-chat-action-bar"></div>', unsafe_allow_html=True)
 

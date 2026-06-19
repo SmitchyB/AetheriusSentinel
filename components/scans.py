@@ -1,65 +1,11 @@
-"""
-Scan action buttons — trigger simulated threat detection flows.
-
-Purpose
--------
-Renders the two primary "scan" triggers used in both Standard (homeowner strip)
-and Expert (overview scan row). Scans **do not probe the live network**; they
-call ``incident_scenarios.trigger_scan()`` which inserts a templated incident,
-events, and recommendations into SQLite.
-
-Navigation / call graph
------------------------
-- ``standard_dashboard.render_standard_mode()`` → ``render_scan_actions(show_label=True)``
-- ``expert_overview.render_expert_overview()`` → ``render_scan_actions(show_label=False)``
-
-Session state (read/write)
---------------------------
-- ``scan_complete_notice`` — success toast text; cleared after one display.
-- ``scan_error_notice`` — warning toast; cleared after one display.
-- Scan disabled when ``incident_scenarios.is_ai_busy()`` (playbook/LLM in flight).
-
-Streamlit widget keys
----------------------
-- ``scan_ai_threat_sweep`` — primary threat sweep button.
-- ``scan_active_connections`` — secondary active-connections scan button.
-
-CSS marker divs
----------------
-- ``standard-btn-marker standard-btn--threat-sweep`` — before threat sweep button.
-- ``standard-btn-marker standard-btn--active-connections`` — before connections button.
-
-db.py / ai_service.py
----------------------
-- **No direct calls.** ``trigger_scan()`` in ``incident_scenarios`` writes via ``db``.
-- AI busy gate indirectly relates to ``ai_service`` work in progress.
-"""
+"""Scan action buttons — trigger simulated threat detection flows."""
 
 import streamlit as st
 
 
 def render_scan_actions(show_label: bool = False):
-    """
-    Render the two scan trigger buttons used in both Standard and Expert mode.
-
-    Args:
-        show_label: When True (Standard mode strip), show a "Scans" section title
-            in a third column. Expert mode uses two equal columns only.
-
-    Session state:
-        Reads ``scan_complete_notice``, ``scan_error_notice``.
-        Writes None to clear notices after display.
-
-    Widget keys:
-        ``scan_ai_threat_sweep``, ``scan_active_connections``.
-
-    Side effects on click:
-        ``incident_scenarios.trigger_scan("ai_threat_sweep"|"active_connections")``
-        then ``st.rerun()``.
-    """
-    from incident_scenarios import is_ai_busy
-
-    scan_disabled = is_ai_busy()
+    """Render the two scan trigger buttons used in both Standard and Expert mode."""
+    scan_disabled = False
 
     if st.session_state.get("scan_complete_notice"):
         st.success(st.session_state.scan_complete_notice)

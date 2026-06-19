@@ -1,49 +1,8 @@
-"""
-Standard mode Sentinel Chat panel — message list, sticky action bar, and Ollama-backed Q&A.
-
-Purpose
--------
-Renders the main homeowner chat UI: incident header, scrollable messages, sticky
-playbook actions, and text input form. Expert drawer reuses ``render_chat_messages``
-and ``render_chat_context_banner`` with different welcome text and draft forms.
-
-Navigation / call graph
------------------------
-``standard_dashboard`` → ``render_sentinel_panel()`` + ``render_sentinel_chat_input()``.
-``expert_chat_drawer`` → shared message/banner renderers + ``st.chat_input``.
-
-Session state dependencies
---------------------------
-- ``messages`` — chat transcript list of {role, content, ...} dicts.
-- ``active_incident_id`` — shows incident header vs general Q&A caption.
-- ``side_panel_open`` — cleared by close button when ``show_close=True``.
-- ``playbook_error_notice`` — one-shot error banner in ``render_ai_status_banner``.
-- AI busy / playbook flags via ``incident_scenarios`` (disables input).
-
-Streamlit widget keys
----------------------
-- ``close_sentinel_panel`` — ✕ when ``show_close=True``.
-- ``standard_sentinel_chat_input`` — text field inside form.
-- Form id: ``standard_sentinel_chat_form`` (submit triggers ``handle_chat_prompt``).
-- Expert drawer uses ``expert_drawer_chat`` (``st.chat_input`` in sibling module).
-
-CSS marker divs
----------------
-- ``standard-panel-card standard-chat-panel standard-chat-row`` — panel shell.
-- ``standard-chat-scroll-box`` — message scroll region.
-- ``standard-chat-footer``, ``standard-chat-action-bar-row``, ``standard-chat-input-row``.
-- Incident header classes: ``standard-chat-incident-header``, ``standard-incident-title``,
-  ``standard-severity-badge`` (Expert reuses ``expert-detail-*`` variants).
-
-db.py / ai_service.py
----------------------
-- **No direct calls in this module.**
-- ``handle_chat_prompt`` (``sentinel_actions``) persists messages via ``db`` and may
-  invoke ``ai_service`` for LLM responses and playbook generation.
-"""
+"""Standard mode Sentinel Chat panel — message list, sticky action bar, and Ollama-backed Q&A."""
 
 import streamlit as st
 
+import ai_service
 from components.sticky_action_bar import render_sticky_action_bar
 from sentinel_actions import (
     STANDARD_WELCOME_MESSAGE,
@@ -52,16 +11,12 @@ from sentinel_actions import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Context banner — incident header or general Q&A caption above messages
+# ---------------------------------------------------------------------------
+
 def render_incident_header(*, expert_mode: bool = False):
-    """
-    Show active incident title/severity above the chat when a session is linked.
-
-    Reads incident mirror from ``incident_scenarios.get_active_incident()`` (session).
-    Shows monitoring info via ``temporal_state`` when watch window is active.
-
-    Args:
-        expert_mode: Switches CSS classes to Expert detail header styling.
-    """
+    """Show active incident title/severity above the chat when a session is linked."""
     from incident_scenarios import (
         get_active_incident,
         get_display_phase,
@@ -120,11 +75,7 @@ def render_incident_header(*, expert_mode: bool = False):
 
 
 def render_chat_context_banner(*, expert_mode: bool = False):
-    """
-    Context line above messages — general Q&A caption or active incident header.
-
-    Session read: ``active_incident_id``.
-    """
+    """Context line above messages — general Q&A caption or active incident header."""
     if st.session_state.get("active_incident_id"):
         render_incident_header(expert_mode=expert_mode)
     elif expert_mode:
@@ -132,22 +83,113 @@ def render_chat_context_banner(*, expert_mode: bool = False):
 
 
 def render_ai_status_banner():
-    """
-    Show loading feedback while playbook generation or AI work is in progress.
-
-    Reads ``playbook_error_notice`` (one-shot), ``is_generating_playbook()``,
-    ``is_ai_busy()`` — latter two gate on ``ai_service`` work in flight.
-    """
-    from incident_scenarios import is_ai_busy, is_generating_playbook
-
+    """Show one-shot playbook errors above the message list."""
     if st.session_state.get("playbook_error_notice"):
         st.error(st.session_state.playbook_error_notice)
         st.session_state.playbook_error_notice = None
-    if is_generating_playbook():
-        st.info("Sentinel is building your response plan…")
-    elif is_ai_busy():
-        st.info("Sentinel is thinking…")
 
+
+def _get_chat_thinking_message() -> str | None:
+    """Return in-chat thinking copy while deferred or in-flight AI work is active."""
+    from incident_scenarios import get_ai_status_message, is_ai_busy, is_generating_playbook
+
+    pending = st.session_state.get("pending_chat_ai")
+    if pending:
+        kind = pending.get("kind", "")
+        by_kind = {
+            "answer_chat": "Sentinel is thinking…",
+            "step_guidance": "Sentinel is preparing your next step…",
+            "incident_report": "Sentinel is generating your incident report…",
+            "execute_action": "Sentinel is thinking…",
+            "verify_resolution": "Sentinel is reviewing this choice…",
+        }
+        return by_kind.get(kind, get_ai_status_message())
+
+    bootstrap_id = st.session_state.get("pending_chat_bootstrap_incident_id")
+    if bootstrap_id and is_generating_playbook(bootstrap_id):
+        return "Sentinel is analyzing incident evidence…"
+
+    if is_ai_busy():
+        return get_ai_status_message()
+
+    return None
+
+
+def _render_chat_thinking_indicator() -> None:
+    """Render a Sentinel thinking row inside the chat transcript."""
+    message = _get_chat_thinking_message()
+    if not message:
+        return
+    with st.chat_message("assistant"):
+        st.markdown(
+            '<div class="sentinel-chat-thinking-marker"></div>'
+            '<div class="sentinel-chat-thinking">'
+            '<span class="sentinel-chat-thinking__spinner" aria-hidden="true"></span>'
+            f"<span>{message}</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def _render_chat_message_body(message: dict) -> None:
+    """Render one chat message — evidence turns get distinct styling and verify warning."""
+    content = str(message.get("content") or "")
+    is_evidence = message.get("message_kind") == "evidence" or ai_service.is_evidence_message_content(
+        content
+    )
+    if is_evidence:
+        display = content
+        if ai_service.is_evidence_message_content(content):
+            display = content[len(ai_service.EVIDENCE_MESSAGE_PREFIX) :].lstrip("\n")
+        st.markdown(
+            f'<div class="sentinel-chat-evidence-marker"></div>\n\n'
+            f'<div class="sentinel-chat-evidence">\n\n'
+            f"**Database evidence used**\n\n{display}\n\n"
+            f"> AI output is generated from the database evidence shown above. "
+            f"Verify the response against the source records.\n\n"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        return
+    st.markdown(content)
+
+
+# ---------------------------------------------------------------------------
+# Pending AI work — two-phase rerun (evidence visible, then LLM)
+# ---------------------------------------------------------------------------
+
+def finish_pending_chat_work() -> bool:
+    """Paint evidence + thinking first, then run deferred AI on the next rerun."""
+    from incident_scenarios import (
+        is_generating_playbook,
+        process_pending_chat_ai,
+        process_pending_incident_chat_work,
+    )
+
+    has_pending_ai = bool(st.session_state.get("pending_chat_ai"))
+    bootstrap_id = st.session_state.get("pending_chat_bootstrap_incident_id")
+    has_bootstrap = bool(bootstrap_id and is_generating_playbook(bootstrap_id))
+
+    if not has_pending_ai and not has_bootstrap:
+        st.session_state.pending_chat_work_painted = False
+        return False
+
+    if not st.session_state.get("pending_chat_work_painted"):
+        st.session_state.pending_chat_work_painted = True
+        return True
+
+    if process_pending_chat_ai():
+        st.session_state.pending_chat_work_painted = False
+        return True
+    if process_pending_incident_chat_work():
+        st.session_state.pending_chat_work_painted = False
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Message list — scrollable transcript, welcome, and thinking indicator
+# ---------------------------------------------------------------------------
 
 def render_chat_messages(
     *,
@@ -155,16 +197,7 @@ def render_chat_messages(
     render_draft_form=None,
     pending_draft_index: int | None = None,
 ):
-    """
-    Render the scrollable message list with optional welcome and draft forms.
-
-    Args:
-        welcome_message: Shown when no messages and no active incident (Standard/Expert welcome).
-        render_draft_form: Optional callback(message, index, pending_draft_index) for inline forms.
-        pending_draft_index: Which message index may show expert action approval form.
-
-    Session read: ``messages``, ``active_incident_id``.
-    """
+    """Render the scrollable message list with optional welcome and draft forms."""
     messages = st.session_state.get("messages", [])
 
     render_ai_status_banner()
@@ -179,22 +212,19 @@ def render_chat_messages(
     else:
         for index, message in enumerate(messages):
             with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+                _render_chat_message_body(message)
                 if render_draft_form is not None and pending_draft_index is not None:
                     render_draft_form(message, index, pending_draft_index)
 
+    _render_chat_thinking_indicator()
+
+
+# ---------------------------------------------------------------------------
+# Standard panel shell — message area and pinned chat input
+# ---------------------------------------------------------------------------
 
 def render_sentinel_panel(show_close: bool = False):
-    """
-    Render the main chat message scroll area for Standard mode (and drawer reuse).
-
-    Args:
-        show_close: When True, show ✕ header for modal/drawer contexts.
-
-    Widget key (when show_close): ``close_sentinel_panel``.
-
-    CSS: ``standard-chat-panel``, ``standard-chat-scroll-box``.
-    """
+    """Render the main chat message scroll area for Standard mode (and drawer reuse)."""
     if show_close:
         close_col, title_col = st.columns([1, 5])
         with close_col:
@@ -214,19 +244,12 @@ def render_sentinel_panel(show_close: bool = False):
         st.markdown('<div class="standard-chat-scroll-box"></div>', unsafe_allow_html=True)
         render_incident_header(expert_mode=False)
         render_chat_messages(welcome_message=STANDARD_WELCOME_MESSAGE)
+        if finish_pending_chat_work():
+            st.rerun()
 
 
 def render_sentinel_chat_input():
-    """
-    Render compact sticky actions and Send form pinned to the bottom of the chat panel.
-
-    Widget keys: form ``standard_sentinel_chat_form``, input ``standard_sentinel_chat_input``.
-
-    CSS: ``standard-chat-footer``, ``standard-chat-action-bar-row``,
-    ``standard-chat-input-row``, ``standard-btn--send`` marker.
-
-    On submit: ``handle_chat_prompt`` → db persist + optional ``ai_service`` call.
-    """
+    """Render compact sticky actions and Send form pinned to the bottom of the chat panel."""
     st.markdown('<div class="standard-chat-footer"></div>', unsafe_allow_html=True)
     st.markdown('<div class="standard-chat-action-bar-row"></div>', unsafe_allow_html=True)
     render_sticky_action_bar(key_prefix="standard")

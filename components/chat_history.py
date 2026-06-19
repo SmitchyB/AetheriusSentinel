@@ -1,59 +1,18 @@
-"""
-Chat history sidebar — resume past analyst sessions from chat_messages table.
-
-Purpose
--------
-Renders clickable session tiles for general (non-incident) chats and
-incident-scoped chats. Used in Standard mode left column and Expert drawer
-history wing. Selecting a tile calls ``chat_sessions.load_chat_session()`` which
-reads messages from SQLite via ``db``.
-
-Navigation / call graph
------------------------
-- ``standard_dashboard`` → ``render_chat_history()`` (Standard left column).
-- ``expert_chat_drawer`` → ``render_expert_drawer_history()`` (collapsible wing).
-
-Session state dependencies
-----------------------------
-- ``active_session_id`` — highlights active tile; read for button type primary/secondary.
-- ``side_panel_open`` — set True when ``open_side_panel=True`` on tile click.
-- ``expert_drawer_history_expanded`` — wing open/closed; toggled by strip button.
-- ``active_incident_id`` — filters "This incident" section in drawer.
-- ``expert_incident_id`` — detail-page incident for drawer history when no active chat.
-
-Streamlit widget keys
----------------------
-- ``{key_prefix}_{index}_{session_id[:8]}`` — per session tile (prefix varies).
-- ``expert_history_wing_toggle`` — ‹/› collapse strip in Expert drawer.
-
-CSS marker divs
----------------
-- ``standard-panel-card standard-history-panel standard-chat-row`` — Standard panel.
-- ``standard-history-scroll-box`` — internal scroll region hook.
-- ``expert-drawer-history-wing`` (+ ``is-open`` / ``is-collapsed``) — wing state.
-- ``expert-drawer-history-strip-marker`` — toggle strip anchor.
-- ``expert-drawer-history-wing-panel`` — expanded wing content.
-- ``expert-drawer-history-scroll`` — drawer scroll box.
-
-db.py
------
-- ``DB_PATH.exists()`` — error gate.
-- ``get_general_session_history(limit=20)`` — general chat tiles.
-- ``get_sessions_for_incident(incident_id)`` — incident-scoped tiles.
-- ``get_incident_by_id(detail_incident_id)`` — title for detail-page history section.
-
-ai_service.py
--------------
-- **Not used** (history is DB-backed; AI runs only after session load + new prompt).
-"""
+"""Chat history sidebar — resume past analyst sessions from chat_messages table."""
 
 import streamlit as st
 
 import db
+from sentinel_actions import start_general_chat
+from components.styled_buttons import render_button_marker, UI_MARKERS
 
 # Max characters shown on history tile title before ellipsis truncation.
 _HISTORY_TITLE_MAX = 22
 
+
+# ---------------------------------------------------------------------------
+# History tile helpers — truncate titles and format activity timestamps
+# ---------------------------------------------------------------------------
 
 def _truncate_title(title: str) -> str:
     """Shorten long incident titles for narrow history column tiles."""
@@ -72,8 +31,11 @@ def _format_history_date(activity: str) -> str:
     return activity
 
 
-def render_session_tiles(
-    sessions: list[dict],
+# ---------------------------------------------------------------------------
+# Session tiles — clickable buttons that reload a persisted thread
+# ---------------------------------------------------------------------------
+
+def render_session_tiles(    sessions: list[dict],
     *,
     key_prefix: str,
     active_session_id: str | None = None,
@@ -81,24 +43,7 @@ def render_session_tiles(
     title_field: str = "incident_title",
     date_field: str = "last_activity",
 ):
-    """
-    Render clickable history tiles as styled Streamlit buttons.
-
-    Args:
-        sessions: List of dicts with session_id, title, and activity fields.
-        key_prefix: Unique prefix for button keys (avoids collisions across panels).
-        active_session_id: Highlight the currently loaded session (primary button).
-        open_side_panel: If True, set ``side_panel_open`` after load (Expert drawer).
-        title_field: Dict key for tile primary label.
-        date_field: Dict key for tile secondary timestamp.
-
-    Widget keys:
-        ``{key_prefix}_{index}_{session_id[:8]}``.
-
-    On click:
-        ``chat_sessions.load_chat_session(session_id)`` → db message load;
-        optionally opens side panel; clears ``expert_drawer_history_expanded``.
-    """
+    """Render clickable history tiles as styled Streamlit buttons."""
     if not sessions:
         return False
 
@@ -128,16 +73,12 @@ def render_session_tiles(
     return True
 
 
+# ---------------------------------------------------------------------------
+# Standard mode — general conversation history column
+# ---------------------------------------------------------------------------
+
 def render_chat_history():
-    """
-    Standard mode left column — recent general (non-incident) chat sessions.
-
-    db.py: ``get_general_session_history(limit=20)``.
-
-    CSS: ``standard-history-panel``, ``standard-history-scroll-box``.
-
-    Widget key prefix: ``history_card``.
-    """
+    """Standard mode left column — recent general (non-incident) chat sessions."""
     st.markdown(
         '<div class="standard-panel-card standard-history-panel standard-chat-row"></div>',
         unsafe_allow_html=True,
@@ -146,6 +87,18 @@ def render_chat_history():
         '<h3 class="standard-section-title standard-section-title--compact">General Conversations</h3>',
         unsafe_allow_html=True,
     )
+
+    new_col, _ = st.columns([1, 0.01])
+    with new_col:
+        render_button_marker(UI_MARKERS["start_chat"])
+        if st.button(
+            "New general chat",
+            key="standard_history_new_general_chat",
+            use_container_width=True,
+            help="Start a fresh analyst conversation not tied to an incident",
+        ):
+            start_general_chat(open_drawer=False)
+            st.rerun()
 
     if not db.DB_PATH.exists():
         st.error(
@@ -183,13 +136,7 @@ def render_incident_session_tiles(
     key_prefix: str,
     open_side_panel: bool = True,
 ):
-    """
-    History tiles filtered to one incident (Expert incident detail / drawer).
-
-    Uses ``get_sessions_for_incident()`` instead of global session history.
-
-    db.py: ``get_sessions_for_incident(incident_id)``.
-    """
+    """History tiles filtered to one incident (Expert incident detail / drawer)."""
     try:
         sessions = db.get_sessions_for_incident(incident_id)
     except Exception as error:
@@ -220,12 +167,12 @@ def render_incident_session_tiles(
         )
 
 
-def _render_expert_drawer_history_content():
-    """
-    Session lists rendered inside the Expert drawer history wing (General + This incident).
+# ---------------------------------------------------------------------------
+# Expert drawer — collapsible history wing beside analyst chat
+# ---------------------------------------------------------------------------
 
-    db.py: ``get_general_session_history``, ``get_sessions_for_incident``, ``get_incident_by_id``.
-    """
+def _render_expert_drawer_history_content():
+    """Session lists rendered inside the Expert drawer history wing (General + This incident)."""
     if not db.DB_PATH.exists():
         st.caption("Database not found — run `python seed.py` to enable chat history.")
         return
@@ -279,16 +226,7 @@ def _render_expert_drawer_history_content():
 
 
 def render_expert_drawer_history():
-    """
-    Collapsible side wing — full-height history panel left of the analyst drawer.
-
-    Widget key: ``expert_history_wing_toggle`` (‹/› strip).
-
-    Session: ``expert_drawer_history_expanded`` toggled on strip click.
-
-    CSS: ``expert-drawer-history-wing``, ``expert-drawer-history-strip-marker``,
-    ``expert-drawer-history-wing-panel``.
-    """
+    """Collapsible side wing — full-height history panel left of the analyst drawer."""
     wing_open = bool(st.session_state.get("expert_drawer_history_expanded"))
     wing_state = "is-open" if wing_open else "is-collapsed"
     st.markdown(

@@ -78,14 +78,14 @@ Standard mode does not use this full detail page; it links the selected incident
 
 ## Question 6
 
-**Where will the future AI feature be added, and what database-resident data will it use?**
+**Where is the AI feature integrated, and what database-resident data does it use?**
 
-The future AI feature will attach in two places:
+The AI feature is live in two places:
 
-1. **Free-form Sentinel Chat** (Standard panel and Expert drawer) — today returns `PLACEHOLDER_AI_REPLY` from `sentinel_actions.py`. A later version will send user prompts plus session context to an LLM.
-2. **Expert incident detail — “AI Analyst Evidence”** — already queries **`get_ai_incident_context(incident_id)`**, which returns factual fields the model should ground on: incident title and severity, device name, and a `GROUP_CONCAT` of `incident_events.payload_summary`.
+1. **Sentinel Chat** (Standard panel and Expert drawer) — before each Ollama call, the app appends a **database evidence** chat message built from `ai_service.format_request_evidence_markdown()` (incident context via `assemble_context()` or dashboard context via `assemble_general_context()`). The AI reply appears in a separate message after a two-phase rerun (`process_pending_chat_ai()`).
+2. **Expert incident detail — “AI Analyst Evidence”** — shows a **current database snapshot** (`get_ai_incident_context()`, indicators) plus **Evidence by AI request** parsed from persisted chat messages.
 
-Additional context can come from `get_recommendations_for_incident()`, `get_incident_actions_list()`, and indicators linked through `incident_indicators`. **No API call is made today**; the UI only displays the evidence table and placeholder chat responses.
+Additional evidence for prompts comes from `get_incident_events()`, `get_recommendations_for_incident()`, `get_incident_actions_list()`, and `incident_indicators`.
 
 ---
 
@@ -93,7 +93,7 @@ Additional context can come from `get_recommendations_for_incident()`, `get_inci
 
 **What is one improvement you plan to make before the final project submission?**
 
-Integrate a real LLM that consumes `get_ai_incident_context()` output and returns summaries with citations back to specific `incident_events` rows, replacing the chat placeholder and template-only narratives.
+Add inline citations in AI summaries that link back to specific `incident_events` row IDs, and surface those citations in the Expert detail timeline when the user clicks a recommendation line.
 
 ---
 

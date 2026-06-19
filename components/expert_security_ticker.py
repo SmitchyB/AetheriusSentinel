@@ -1,39 +1,4 @@
-"""
-Expert mode security events ticker — scrolling feed of recent incident_events.
-
-Purpose
--------
-Renders the top-left panel on Expert overview: an auto-scrolling marquee of
-recent security events. Streamlit has no native ticker widget, so rows are built
-as raw HTML and animated via CSS in ``expert.css``.
-
-Navigation / call graph
------------------------
-``expert_overview.render_expert_overview()`` → ``render_expert_security_ticker()``.
-
-Session state
--------------
-- None.
-
-Streamlit widget keys
----------------------
-- None (HTML-only ticker).
-
-CSS marker divs / structure
----------------------------
-- ``expert-security-events-body`` — outer wrapper.
-- ``expert-events-ticker`` — sets ``--expert-ticker-h`` CSS variable from arg.
-- ``expert-ticker-row severity-{critical|high|medium|low}`` — per-event row.
-- Track content duplicated for seamless CSS animation loop.
-
-db.py
------
-- ``get_security_events_ticker(limit=25)`` — JOIN events + incidents for display columns.
-
-ai_service.py
--------------
-- **Not used.**
-"""
+"""Expert mode security events ticker — scrolling feed of recent incident_events."""
 
 import html
 
@@ -59,19 +24,7 @@ def _format_ticker_time(raw_time: str) -> str:
 
 
 def render_expert_security_ticker(content_height: int = 252):
-    """
-    Render auto-scrolling security event rows in Expert overview top-left panel.
-
-    Args:
-        content_height: Viewport height in px — passed to CSS var ``--expert-ticker-h``.
-
-    db.py:
-        ``get_security_events_ticker(limit=25)``.
-
-    CSS:
-        Full ticker DOM under ``expert-security-events-body``; rows use
-        ``expert-ticker-row`` + severity class for left accent bar color.
-    """
+    """Render auto-scrolling security event rows in Expert overview top-left panel."""
     st.markdown(
         '<h3 class="standard-section-title standard-section-title--compact">Security Events</h3>',
         unsafe_allow_html=True,
