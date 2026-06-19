@@ -11,6 +11,32 @@ Aetherius Sentinel is a database-backed cybersecurity incident analyst prototype
 - **Primary user:** Homeowners (non-technical) — Standard mode
 - **Secondary user:** Home network admins (advanced) — Expert mode
 
+## Highlights
+
+- **Layered architecture** — UI (`app.py` + `components/`) → orchestration (`incident_scenarios.py`, `sentinel_actions.py`) → AI helper (`ai_service.py`) → data access (`db.py`) → SQLite. No raw SQL outside `db.py`.
+- **Evidence-grounded AI** — a local LLM (Ollama) reads facts retrieved from the database, not user-typed prose; every AI reply is preceded by the database evidence that produced it.
+- **Two distinct UX modes** from one data layer — plain-language Standard mode for homeowners and a SOC-style Expert dashboard for admins.
+- **Defensive SQL** — all user-driven queries are parameterized; schema migrations are idempotent and run on every connection.
+- **Honest failure modes** — when Ollama is offline or returns invalid output, the app surfaces a real error instead of a silent fake playbook.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Language | Python 3.13 |
+| UI | Streamlit |
+| Data | SQLite (`sqlite3`) + pandas |
+| AI | Local LLM via [Ollama](https://ollama.com) (`llama3.1:8b`) |
+| Config | `python-dotenv` (`.env`) |
+
+## How It Works (60 seconds)
+
+1. A simulated **scan** creates an incident in SQLite.
+2. **Automated investigation** (`fingerprint_device`, `ping_sweep`) records events and IOCs.
+3. **Ollama reads the database evidence** for that incident and writes a recommended playbook.
+4. The user is **guided through containment/eradication** via chat and a sticky action bar.
+5. A **report** is generated from database evidence, and future sessions can resume or summarize.
+
 ## AI Disclaimer
 
 **Sentinel uses a local LLM via Ollama** (default model: `llama3.1:8b`). No cloud API key is required. **Playbooks are AI-generated only** — Ollama must be running with the configured model installed.
@@ -25,7 +51,7 @@ Aetherius Sentinel is a database-backed cybersecurity incident analyst prototype
 
 ---
 
-## Run the AI-Enabled Prototype (Assignment 5.2)
+## Setup and Run
 
 ### 1. Install dependencies
 
@@ -169,28 +195,41 @@ The header **Alerts** bell shows:
 Aetherius Sentinel/
   README.md
   requirements.txt
-  ai_service.py       # AI helper module (prompts, Ollama calls, validation)
-  app.py              # Streamlit entry point
-  db.py               # Database access layer (all SQL lives here)
-  schema.sql
-  seed.py
-  incident_scenarios.py
-  sentinel_actions.py
+  app.py                  # Streamlit entry point (wiring + mode routing only)
+  db.py                   # Database access layer (all SQL lives here)
+  ai_service.py           # AI helper module (prompts, Ollama calls, validation)
+  incident_scenarios.py   # Scan flow, auto-investigation, AI analysis orchestration
+  sentinel_actions.py     # Chat orchestration, intent detection, message persistence
+  action_catalog.py       # Registry of response actions + playbook generation
+  scenario_telemetry.py   # Scripted incident-event and IOC templates
+  temporal_state.py       # Monitoring windows / demo time-compression gates
+  chat_sessions.py        # Loads a DB chat session into Streamlit state
+  seed.py                 # Builds data/project.db from schema.sql + sample data
+  seed_narrative.py       # Seeds synchronized chat transcripts + action history
+  schema.sql              # Database schema (tables, constraints, indexes)
   data/
-    project.db        # Created by seed.py
-  components/         # UI modules; call db.py, no raw SQL in app.py
+    project.db            # Created by seed.py
+  components/             # ~27 UI modules; call db.py, no raw SQL in app.py
+                          #   expert_*    Expert (SOC) dashboard panels
+                          #   standard_*  Standard (homeowner) layout
+                          #   shared      chat_history, scans, sentinel_panel, etc.
   docs/
-    ai_feature_notes.md
-    db_access_notes.md
-    streamlit_prototype_notes.md
-    query_portfolio.md
+    ai_feature_notes.md          # AI database integration design (5.2)
+    streamlit_prototype_notes.md # Streamlit prototype design notes (4.2)
+    db_access_notes.md           # Python database access layer notes (4.1)
+    schema_reflection.md         # Data-model design rationale
+    schema_verification.md       # Schema validation checks
+    query_portfolio.md           # SQL query portfolio (annotated)
+    queries.sql                  # Raw SQL portfolio source
 ```
 
 Architecture:
 
 ```text
-User → Streamlit (app.py + components/) → ai_service.py → Ollama (local)
-                                      ↘ db.py → SQL → data/project.db
+User → Streamlit (app.py + components/)
+         → incident_scenarios.py / sentinel_actions.py   (orchestration)
+             → ai_service.py → Ollama (local LLM)
+             ↘ db.py → SQL → data/project.db
 ```
 
 ---
@@ -235,7 +274,14 @@ See `docs/ai_feature_notes.md`.
 
 ## Documentation
 
-- `docs/ai_feature_notes.md` — AI database integration (Assignment 5.2)
-- `docs/db_access_notes.md` — Python database access layer (Assignment 4.1)
-- `docs/streamlit_prototype_notes.md` — Streamlit prototype design notes (Assignment 4.2)
-- `docs/query_portfolio.md` — SQL query portfolio
+- `docs/ai_feature_notes.md` — AI database integration: architecture, prompt boundaries, risks
+- `docs/streamlit_prototype_notes.md` — Streamlit prototype design notes (data displayed, filters, joins, aggregations)
+- `docs/db_access_notes.md` — Python database access layer (connection handling, parameterized queries)
+- `docs/schema_reflection.md` — Data-model design rationale
+- `docs/schema_verification.md` — Schema validation checks
+- `docs/query_portfolio.md` — Annotated SQL query portfolio
+- `docs/queries.sql` — Raw SQL portfolio source
+
+> Course context: this project was built for a database course; the per-assignment
+> checklists above map features to those deliverables. The code and architecture are
+> written to stand on their own as a portfolio piece.

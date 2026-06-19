@@ -1,12 +1,11 @@
 # Streamlit Prototype Notes
 
-Assignment 4.2 documentation for the Aetherius Sentinel Streamlit interface.
+Design notes for the Aetherius Sentinel Streamlit interface — what data it shows, how
+users filter it, and where the AI feature plugs in.
 
 ---
 
-## Question 1
-
-**What database-backed information does your Streamlit app display?**
+## Database-backed information displayed
 
 The app displays data from the SQLite database at `data/project.db`, retrieved through functions in `db.py`:
 
@@ -21,9 +20,7 @@ Standard mode emphasizes the incident list and chat workflow; Expert mode adds d
 
 ---
 
-## Question 2
-
-**What user-controlled filter or selection did you implement?**
+## User-controlled filters and selection
 
 In **Expert mode**, the incidents panel uses two `st.selectbox` widgets:
 
@@ -36,9 +33,7 @@ In **Standard mode**, the incidents table supports **single-row selection** via 
 
 ---
 
-## Question 3
-
-**Which JOIN query result is displayed in your app, and why is it useful?**
+## JOIN results in the UI
 
 Several JOIN results appear in the UI. A primary example is **`get_incidents_list()`** / **`get_incidents_filtered()`**, which joins `incidents` with `devices` to show each incident alongside the affected device name and IP.
 
@@ -46,9 +41,7 @@ This is useful because security analysts need asset context—not just an alert 
 
 ---
 
-## Question 4
-
-**Which aggregation or summary result is displayed in your app?**
+## Aggregation and summary results
 
 Expert mode shows multiple aggregation results:
 
@@ -61,9 +54,7 @@ The severity chart is the clearest GROUP BY demonstration for graders: it summar
 
 ---
 
-## Question 5
-
-**What data does your detail view retrieve?**
+## Detail view data
 
 In **Expert mode**, selecting an incident opens the detail view (`components/expert_incident_detail.py`), which loads:
 
@@ -76,9 +67,7 @@ Standard mode does not use this full detail page; it links the selected incident
 
 ---
 
-## Question 6
-
-**Where is the AI feature integrated, and what database-resident data does it use?**
+## AI feature integration points
 
 The AI feature is live in two places:
 
@@ -89,9 +78,7 @@ Additional evidence for prompts comes from `get_incident_events()`, `get_recomme
 
 ---
 
-## Question 7
-
-**What is one improvement you plan to make before the final project submission?**
+## Planned improvement
 
 Add inline citations in AI summaries that link back to specific `incident_events` row IDs, and surface those citations in the Expert detail timeline when the user clicks a recommendation line.
 

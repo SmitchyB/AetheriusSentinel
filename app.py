@@ -1,4 +1,20 @@
-"""Aetherius Sentinel — Streamlit application entry point."""
+"""Aetherius Sentinel — Streamlit application entry point.
+
+This module is the top-level wiring for the app and is organized in four parts:
+
+1. Path + imports — put the project root on ``sys.path`` so the app runs from any
+   working directory, then import the core logic/DB modules and UI components.
+2. Dev hot-reload — ``importlib.reload`` re-imports local modules on every script
+   run so source edits apply without restarting Streamlit. ``action_catalog`` must
+   reload before ``incident_scenarios`` because the latter imports symbols from it.
+3. Bootstrap — inject shared CSS and initialize ``st.session_state`` (chat, expert
+   toggles, incident/playbook state) before any widgets render.
+4. Layout — render the shared header toolbar, then branch into one of two bodies:
+   Expert (SOC-style dashboard, ``render_expert_mode``) or Standard (homeowner
+   layout, ``render_standard_mode``). The chosen mode is read from session state.
+
+No SQL or business logic lives here; this file only orchestrates modules.
+"""
 
 import importlib
 import sys
